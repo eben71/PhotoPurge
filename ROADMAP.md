@@ -14,11 +14,7 @@
 
 ### Repository & Project Scaffolding
 - [ ] Initialise mono-repo (frontend + backend, clear separation)
-- [ ] Define top-level folder structure
-  - [ ] `/frontend`
-  - [ ] `/backend`
-  - [ ] `/docs`
-  - [ ] `/scripts`
+- [x] Define top-level folder structure
 - [ ] Add `.gitignore`, `.editorconfig`
 - [ ] Add `.env.example` (no secrets, just placeholders)
 - [ ] Define local dev commands (documented in README)
@@ -28,10 +24,8 @@
   - [ ] `build`
 
 ### Documentation Skeleton (Minimal but Real)
-- [ ] `README.md` (what it is, what it is not, MVP scope boundaries)
-- [ ] `ROADMAP.md` (this file)
-- [ ] `DECISIONS.md` (empty but structured + dated entries)
-- [ ] `RISK_REGISTER.md` (empty but structured: risk, impact, mitigation, owner)
+- [x] `README.md` (what it is, what it is not, MVP scope boundaries)
+- [x] `ROADMAP.md` (this file)
 
 ### Code Quality Baseline (Local)
 - [ ] Linting configured (language-appropriate)
@@ -53,8 +47,8 @@
   - [ ] No direct pushes to main
 
 ### Guardrails (Prevent Roadmap Drift)
-- [ ] MVP scope explicitly written in README
-- [ ] “Out of scope” list included to prevent drift
+- [x] MVP scope explicitly written in README
+- [x] “Out of scope” list included to prevent drift
 - [ ] No infrastructure provisioning in this phase
 - [ ] No product logic implemented in this phase
 

@@ -27,7 +27,7 @@ PhotoPrune helps you safely **find and remove duplicate / near-duplicate photos*
     web/            # Next.js web app
     api/            # FastAPI service
     worker/         # Celery workers (image scanning/processing)
-	tests/
+  tests/
     integration/
       web/
       api/
@@ -41,7 +41,7 @@ PhotoPrune helps you safely **find and remove duplicate / near-duplicate photos*
       api/
     helpers/
     fixtures/
-	packages/
+  packages/
     shared/         # shared types/schemas (e.g., Zod schemas, API contracts)
   infra/
     docker/         # docker-compose, local dev tooling

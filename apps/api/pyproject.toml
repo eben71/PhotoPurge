@@ -10,8 +10,8 @@ dependencies = [
     "python-dotenv>=1.0.1",
 ]
 
-[tool.uv]
-dev-dependencies = [
+[tool.uv.dependency-groups]
+dev = [
     "ruff>=0.6.8",
     "black>=24.8.0",
     "mypy>=1.11.2",

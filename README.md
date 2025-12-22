@@ -14,10 +14,12 @@ PhotoPrune helps you safely **find and remove duplicate / near-duplicate photos*
 - **Queue/Broker:** Redis  
 - **Database:** PostgreSQL (optional: pgvector later)  
 - **Object storage:** S3-compatible (Cloudflare R2 or AWS S3)  
-- **Local dev:** Docker Compose  
+- **Local dev:** Docker + Docker Compose  
 - **Monorepo:** Turborepo  
 - **CI:** GitHub Actions  
 - **Testing:** Vitest (FE), Playwright (E2E), pytest (BE/worker)
+- **Ruff, Black, Mypy** Linting, formatting and type checking
+- **MAKE** Running commands - shortcuts for Docker/pnpm commands
 
 ## Proposed repo structure (monorepo)
 
@@ -25,20 +27,17 @@ PhotoPrune helps you safely **find and remove duplicate / near-duplicate photos*
 /
   apps/
     web/            # Next.js web app
+			.storybook/
+			src/
+			tests/
     api/            # FastAPI service
-    worker/         # Celery workers (image scanning/processing)
-  tests/
-    integration/
-      web/
-      api/
-      worker/
-    unit/
-      web/
-      api/
-      integration/
-    e2e/
-      web/
-      api/
+			src/
+			tests/
+    workers/         # Celery workers (image scanning/processing)
+			src/
+			tests/
+	test-utils/
+		mocks/
     helpers/
     fixtures/
   packages/
@@ -47,7 +46,6 @@ PhotoPrune helps you safely **find and remove duplicate / near-duplicate photos*
     docker/         # docker-compose, local dev tooling
     terraform/      # IaC once deployment is stabilized
   docs/
-    architecture/   # ADRs, diagrams, decisions
   .github/
     workflows/      # CI pipelines
 ```

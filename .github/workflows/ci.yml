@@ -53,6 +53,11 @@ jobs:
           curl -I https://pypi.org/simple/ || true
           curl -I https://registry.npmjs.org/ || true
 
+      - name: Clear proxy env (personal internet)
+        run: |
+          unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy NO_PROXY no_proxy
+          echo "Cleared proxy env vars."
+
       - name: Install Node dependencies
         run: pnpm install
 

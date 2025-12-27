@@ -1,0 +1,15 @@
+pre-commit:
+  parallel: true
+  commands:
+    web-lint:
+      run: pnpm --filter web lint
+    web-format:
+      run: pnpm --filter web format:check
+    api-lint:
+      run: cd apps/api && uv run ruff check app tests
+    api-format:
+      run: cd apps/api && uv run black --check app tests
+    worker-lint:
+      run: cd apps/worker && uv run ruff check app tests
+    worker-format:
+      run: cd apps/worker && uv run black --check app tests

@@ -1,15 +1,17 @@
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from functools import lru_cache
+from typing import Any
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, EnvSettingsSource, SettingsConfigDict
+
+SettingsSourceCallable = Callable[[], dict[str, Any]]
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        env_parse_envars=False,
     )
 
     app_name: str = "PhotoPrune API"
@@ -25,16 +27,16 @@ class Settings(BaseSettings):
         return list(value)
 
     @classmethod
-    def settings_customise_sources(
-        cls,
-        settings_cls,
-        init_settings,
-        env_settings,
-        dotenv_settings,
-        file_secret_settings,
-    ):
+    def settings_customise_sources(  # type: ignore[override]
+        cls: type["Settings"],
+        settings_cls: type["Settings"],
+        init_settings: SettingsSourceCallable,
+        env_settings: SettingsSourceCallable,
+        dotenv_settings: SettingsSourceCallable,
+        file_secret_settings: SettingsSourceCallable,
+    ) -> tuple[SettingsSourceCallable, ...]:
         class CorsEnvSettingsSource(EnvSettingsSource):
-            def decode_complex_value(self, field_name, field, value):  # type: ignore[override]
+            def decode_complex_value(self, field_name: str, field: Any, value: Any) -> Any:
                 if field_name == "cors_origins" and isinstance(value, str):
                     return value
                 return super().decode_complex_value(field_name, field, value)

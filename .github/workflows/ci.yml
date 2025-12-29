@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+env:
+  UV_PROJECT_ENV: .venv
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.12.2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install Node dependencies
+        run: pnpm install
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        run: python -m pip install --upgrade pip uv
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: |
+          uv venv .venv
+          uv pip install -r requirements-dev.lock
+
+      - name: Install worker dependencies
+        working-directory: apps/worker
+        run: |
+          uv venv .venv
+          uv pip install -r requirements-dev.lock
+
+      - name: Lint (web + shared)
+        run: pnpm lint
+
+      - name: Lint (python)
+        run: |
+          (cd apps/api && uv run ruff check app tests)
+          (cd apps/worker && uv run ruff check app tests)
+
+      - name: Format check
+        run: |
+          pnpm format:check
+          (cd apps/api && uv run black --check app tests)
+          (cd apps/worker && uv run black --check app tests)
+
+      - name: Type check
+        run: |
+          pnpm typecheck
+          (cd apps/api && uv run mypy app)
+          (cd apps/worker && uv run mypy app)
+
+      - name: Tests (web)
+        run: pnpm test
+
+      - name: Tests (api)
+        working-directory: apps/api
+        run: uv run pytest
+
+      - name: Tests (worker)
+        working-directory: apps/worker
+        run: uv run pytest
+
+      - name: Coverage gate
+        run: node scripts/check-coverage.mjs
+
+      - name: Build (web + shared)
+        run: pnpm build
+
+      - name: Build (api)
+        working-directory: apps/api
+        run: uv run python -m compileall app
+
+      - name: Build (worker)
+        working-directory: apps/worker
+        run: uv run python -m compileall app
+
+      - name: Documentation guard
+        run: pnpm check:docs
+
+      - name: Dependency audit (node)
+        run: pnpm audit --prod --audit-level=high
+
+      - name: Dependency audit (python api)
+        working-directory: apps/api
+        run: uv run pip-audit --progress-spinner=off
+
+      - name: Dependency audit (python worker)
+        working-directory: apps/worker
+        run: uv run pip-audit --progress-spinner=off

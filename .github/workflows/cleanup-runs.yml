@@ -1,0 +1,55 @@
+name: Cleanup Workflow Runs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write     # needed for DELETE /actions/runs/{id}
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Ensure GitHub CLI is available
+        run: gh --version || (sudo apt-get update && sudo apt-get install -y gh && gh --version)
+
+      - name: Verify gh authentication
+        run: gh auth status
+
+      - name: Collect candidate run IDs (completed, per workflow/branch)
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          N=10  # how many to keep per branch
+          gh run list \
+            --repo "$REPO" \
+            --limit 1000 \
+            --json databaseId,headBranch,createdAt,status,workflowName \
+          | jq -r --argjson keep "$N" '
+              map(select(.status == "completed"))
+            | sort_by([.workflowName, .headBranch // "", .createdAt])
+            | group_by({workflow: .workflowName, branch: (.headBranch // "__default__")})[]
+            | reverse                                     # newest first
+            | if length > $keep then .[$keep:] else [] end  # drop the newest keep, delete the rest
+            | .[].databaseId' \
+          | tee run_ids.txt
+
+          echo "Found $(wc -l < run_ids.txt) runs to delete."
+
+      - name: Delete runs (one by one with logging)
+        if: ${{ hashFiles('run_ids.txt') != '' }}
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          if [ -s run_ids.txt ]; then
+            while read -r id; do
+              echo "Deleting run $id..."
+              # Add -v for verbose HTTP if you need to debug (shows 2xx/4xx)
+              gh api -X DELETE "repos/$REPO/actions/runs/$id"
+            done < run_ids.txt
+          else
+            echo "No runs to delete."
+          fi

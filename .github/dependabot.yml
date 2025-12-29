@@ -1,0 +1,25 @@
+version: 2
+updates:
+  # Monitor all dependencies (requirements.txt and requirements-dev.txt)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "09:00"
+      timezone: "Australia/Perth"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"  # Matches all dependencies in the npm ecosystem
+    target-branch: "main"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "python"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    commit-message:
+      prefix: "deps"
+      include: "scope"

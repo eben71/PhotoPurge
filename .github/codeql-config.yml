@@ -1,0 +1,15 @@
+name: photopurge-codeql
+paths:
+  - apps/api
+  - apps/worker
+  - .github/workflows
+paths-ignore:
+  - "**/.venv/**"
+  - "**/node_modules/**"
+  - "**/.next/**"
+  - "**/.turbo/**"
+  - "**/coverage/**"
+  - "**/dist/**"
+  - "**/build/**"
+  - "**/*.tsbuildinfo"
+  - "**/cache/**"

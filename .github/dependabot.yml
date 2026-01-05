@@ -1,8 +1,8 @@
 version: 2
 updates:
-  # Monitor all dependencies (requirements.txt and requirements-dev.txt)
+  # Monitor Python dependencies from PEP 621 pyproject.toml files.
   - package-ecosystem: "pip"
-    directory: "/"
+    directory: "/apps/api"
     schedule:
       interval: "weekly"
       day: "sunday"
@@ -11,7 +11,29 @@ updates:
     groups:
       all-dependencies:
         patterns:
-          - "*"  # Matches all dependencies in the npm ecosystem
+          - "*"
+    target-branch: "main"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "python"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+  - package-ecosystem: "pip"
+    directory: "/apps/worker"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "09:00"
+      timezone: "Australia/Perth"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
     target-branch: "main"
     open-pull-requests-limit: 10
     labels:

@@ -6,6 +6,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 env:
   UV_PROJECT_ENV: .venv
   NEXT_TELEMETRY_DISABLED: '1'

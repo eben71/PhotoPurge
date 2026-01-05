@@ -3,12 +3,14 @@ const fs = require('fs/promises');
 const path = require('path');
 const http = require('http');
 const readline = require('readline');
+const { fetchWithTimeout } = require('./http');
 
 const TOKEN_DIR = path.join(__dirname, '..', '.tokens');
 const TOKEN_FILE_VERSION = 1;
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 const AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
 const OAUTH_SCOPE = 'https://www.googleapis.com/auth/photoslibrary.readonly';
+const TOKEN_TIMEOUT_MS = 20000;
 
 function requireEnv(name) {
   const value = process.env[name];
@@ -225,11 +227,15 @@ async function exchangeAuthCodeForTokens({
     code_verifier: codeVerifier,
   });
 
-  const response = await fetch(TOKEN_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  });
+  const response = await fetchWithTimeout(
+    TOKEN_ENDPOINT,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    },
+    TOKEN_TIMEOUT_MS,
+  );
 
   if (!response.ok) {
     const message = await response.text();
@@ -260,11 +266,15 @@ async function refreshAccessToken({
     refresh_token: refreshToken,
   });
 
-  const response = await fetch(TOKEN_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  });
+  const response = await fetchWithTimeout(
+    TOKEN_ENDPOINT,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    },
+    TOKEN_TIMEOUT_MS,
+  );
 
   if (!response.ok) {
     const message = await response.text();

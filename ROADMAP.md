@@ -13,35 +13,35 @@
 > **Goal:** Create a clean, disciplined workspace so MVP work can start without rework.
 
 ### Repository & Project Scaffolding
-- [x] Initialise mono-repo (frontend + backend, clear separation)
+- ✅ Initialise mono-repo (frontend + backend, clear separation)
 - ✅ Define top-level folder structure
-- [x] Add `.gitignore`, `.editorconfig`
-- [x] Add `.env.example` (no secrets, just placeholders)
-- [x] Define local dev commands (documented in README)
-  - [x] `dev` (run locally)
-  - [x] `lint`
-  - [x] `test`
-  - [x] `build`
+- ✅ Add `.gitignore`, `.editorconfig`
+- ✅ Add `.env.example` (no secrets, just placeholders)
+- ✅ Define local dev commands (documented in README)
+  - ✅ `dev` (run locally)
+  - ✅ `lint`
+  - ✅ `test`
+  - ✅ `build`
 
 ### Documentation Skeleton (Minimal but Real)
 - ✅ `README.md` (what it is, what it is not, MVP scope boundaries)
 - ✅ `ROADMAP.md` (this file)
 
 ### Code Quality Baseline (Local)
-- [x] Linting configured (language-appropriate)
-- [x] Formatting rules enforced
-- [x] Type checking enabled (if applicable)
-- [x] Pre-commit hooks (lint + format only)
+- ✅ Linting configured (language-appropriate)
+- ✅ Formatting rules enforced
+- ✅ Type checking enabled (if applicable)
+- ✅ Pre-commit hooks (lint + format only)
 
 ### CI/CD Baseline (Starts Now)
-- [x] CI pipeline runs on every PR and on main branch updates
-- [x] CI steps (PR gate):
-  - [x] Install dependencies
-  - [x] Lint (fail = block merge)
-  - [x] Format check (fail = block merge)
-  - [x] Type check (if applicable)
-  - [x] Build frontend
-  - [x] Build backend
+- ✅ CI pipeline runs on every PR and on main branch updates
+- ✅ CI steps (PR gate):
+  - ✅ Install dependencies
+  - ✅ Lint (fail = block merge)
+  - ✅ Format check (fail = block merge)
+  - ✅ Type check (if applicable)
+  - ✅ Build frontend
+  - ✅ Build backend
 - [ ] Branch protection enabled:
   - [ ] Required checks must pass before merge
   - [ ] No direct pushes to main

@@ -1,29 +1,54 @@
 name: Cleanup Workflow Runs
-
 on:
   workflow_dispatch:
-
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly at 2 AM Sunday UTC
 permissions:
-  actions: write     # needed for DELETE /actions/runs/{id}
+  actions: write
   contents: read
-
 jobs:
   cleanup:
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
     steps:
-      - name: Ensure GitHub CLI is available
-        run: gh --version || (sudo apt-get update && sudo apt-get install -y gh && gh --version)
+      - name: Checkout (to get current branches)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # fetch all branches
 
-      - name: Verify gh authentication
-        run: gh auth status
+      - name: Ensure GitHub CLI
+        run: gh --version || (sudo apt-get update && sudo apt-get install -y gh)
 
-      - name: Collect candidate run IDs (completed, per workflow/branch)
-        env:
-          REPO: ${{ github.repository }}
+      - name: Get active branches
+        id: branches
         run: |
-          N=10  # how many to keep per branch
+          git branch -r | sed 's/origin\///' | grep -v HEAD > active_branches.txt
+          echo "Active branches: $(wc -l < active_branches.txt)"
+          cat active_branches.txt
+
+      - name: Collect runs from DELETED branches
+        run: |
+          gh run list \
+            --repo "$REPO" \
+            --limit 1000 \
+            --json databaseId,headBranch,status \
+          | jq -r --slurpfile branches active_branches.txt '
+              ($branches[0] | split("\n") | map(select(length > 0))) as $active
+            | map(select(
+                .status == "completed" 
+                and .headBranch != null 
+                and (.headBranch | IN($active[]) | not)
+              ))
+            | .[].databaseId' \
+          > deleted_branch_runs.txt
+          
+          echo "Runs from deleted branches: $(wc -l < deleted_branch_runs.txt)"
+
+      - name: Collect old runs (keep N newest per workflow/branch)
+        run: |
+          N=10
           gh run list \
             --repo "$REPO" \
             --limit 1000 \
@@ -32,24 +57,32 @@ jobs:
               map(select(.status == "completed"))
             | sort_by([.workflowName, .headBranch // "", .createdAt])
             | group_by({workflow: .workflowName, branch: (.headBranch // "__default__")})[]
-            | reverse                                     # newest first
-            | if length > $keep then .[$keep:] else [] end  # drop the newest keep, delete the rest
+            | reverse
+            | if length > $keep then .[$keep:] else [] end
             | .[].databaseId' \
-          | tee run_ids.txt
+          > old_runs.txt
+          
+          echo "Old runs from active branches: $(wc -l < old_runs.txt)"
 
-          echo "Found $(wc -l < run_ids.txt) runs to delete."
+      - name: Merge deletion candidates
+        run: |
+          cat deleted_branch_runs.txt old_runs.txt | sort -u > run_ids.txt
+          echo "Total unique runs to delete: $(wc -l < run_ids.txt)"
 
-      - name: Delete runs (one by one with logging)
-        if: ${{ hashFiles('run_ids.txt') != '' }}
-        env:
-          REPO: ${{ github.repository }}
+      - name: Delete runs (with rate limiting)
+        if: hashFiles('run_ids.txt') != ''
         run: |
           if [ -s run_ids.txt ]; then
+            count=0
             while read -r id; do
-              echo "Deleting run $id..."
-              # Add -v for verbose HTTP if you need to debug (shows 2xx/4xx)
-              gh api -X DELETE "repos/$REPO/actions/runs/$id"
+              echo "[$((++count))] Deleting run $id..."
+              if gh api -X DELETE "repos/$REPO/actions/runs/$id" 2>&1 | grep -q "rate limit"; then
+                echo "Rate limited, sleeping 60s..."
+                sleep 60
+              fi
+              sleep 0.5  # small delay between requests
             done < run_ids.txt
+            echo "✓ Deleted $count runs"
           else
-            echo "No runs to delete."
+            echo "No runs to delete"
           fi

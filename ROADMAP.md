@@ -49,8 +49,8 @@
 ### Guardrails (Prevent Roadmap Drift)
 - ✅ MVP scope explicitly written in README
 - ✅ “Out of scope” list included to prevent drift
-- [ ] No infrastructure provisioning in this phase
-- [ ] No product logic implemented in this phase
+- ✅ No infrastructure provisioning in this phase
+- ✅ No product logic implemented in this phase
 
 **Exit Criteria**
 - Repo can be cloned and skeleton can run/build locally

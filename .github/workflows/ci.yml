@@ -108,8 +108,8 @@ jobs:
 
       - name: Dependency audit (python api)
         working-directory: apps/api
-        run: uv run pip-audit --progress-spinner=off
+        run: uv run pip-audit --progress-spinner=off --skip-editable
 
       - name: Dependency audit (python worker)
         working-directory: apps/worker
-        run: uv run pip-audit --progress-spinner=off
+        run: uv run pip-audit --progress-spinner=off --skip-editable

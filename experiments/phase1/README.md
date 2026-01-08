@@ -52,3 +52,24 @@ node experiments/phase1/src/diff-baseline.js --a experiments/phase1/runs/<run>-b
 
 - Run artifacts are written to `experiments/phase1/runs/` and are **gitignored**.
 - This code is intentionally minimal and should not be promoted to production.
+
+## Troubleshooting empty output
+
+If the scan completes but `*-items.ndjson` is empty, use the `[diag]` logs to narrow down the cause:
+
+- `mediaItems.list keys=... mediaItems=missing|0` means the API response did not include `mediaItems` or it was empty.
+- `mediaItems.list ... nextPageToken=[present]` with a repeated token triggers a hard error to avoid infinite loops.
+- `wrote 0 items this page; filtered reasons=...` means items were returned but none were written (e.g., max-items reached or future filters).
+- The summary line reports total pages, total mediaItems received, total items written, and output file size.
+
+Common causes:
+
+- **No app-created items**: Under `appcreateddata` scope, Google Photos only returns items created by this app. If none exist, totals stay at zero.
+- Filtering or max-items limits: ensure `--max-items` and tier limits allow writes.
+- Pagination issues: a repeated `nextPageToken` now stops the run with an explicit error.
+
+Next steps:
+
+- Verify your app has created media in the library (upload via this app).
+- Try `--search-since YYYY-MM-DD` to confirm `mediaItems.search` returns items.
+- Inspect the `[diag]` summary to confirm whether the API returned items vs. writes were filtered.

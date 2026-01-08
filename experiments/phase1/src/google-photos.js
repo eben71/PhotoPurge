@@ -1,6 +1,6 @@
-const { buildBackoffDelayMs, fetchWithTimeout, sleep } = require('./http');
+const { buildBackoffDelayMs, fetchWithTimeout, sleep } = require("./http");
 
-const API_BASE = 'https://photoslibrary.googleapis.com/v1';
+const API_BASE = "https://photoslibrary.googleapis.com/v1";
 
 function createMetrics() {
   return {
@@ -25,7 +25,7 @@ function createMetrics() {
 
 async function apiRequest({
   url,
-  method = 'GET',
+  method = "GET",
   body,
   getAccessToken,
   metrics,
@@ -42,11 +42,13 @@ async function apiRequest({
 
     try {
       metrics.total_requests += 1;
+      console.log("HTTP", method || "GET", url);
+
       const response = await fetchWithTimeout(url, {
         method,
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: body ? JSON.stringify(body) : undefined,
       });
@@ -61,7 +63,7 @@ async function apiRequest({
         metrics.rate_limit_events.count += 1;
         metrics.rate_limit_events.by_status[response.status] =
           (metrics.rate_limit_events.by_status[response.status] || 0) + 1;
-        const retryAfterHeader = response.headers.get('retry-after');
+        const retryAfterHeader = response.headers.get("retry-after");
         const retryAfterSeconds = retryAfterHeader
           ? Number(retryAfterHeader)
           : null;
@@ -97,9 +99,9 @@ async function apiRequest({
       return response.json();
     } catch (error) {
       lastError = error;
-      if (error.name === 'AbortError') {
+      if (error.name === "AbortError") {
         metrics.failures_by_type.network += 1;
-      } else if (!error.message?.startsWith('API error')) {
+      } else if (!error.message?.startsWith("API error")) {
         metrics.failures_by_type.network += 1;
       }
 
@@ -109,17 +111,29 @@ async function apiRequest({
     }
   }
 
-  throw lastError || new Error('API request failed');
+  throw lastError || new Error("API request failed");
 }
 
-async function listMediaItems({ getAccessToken, metrics, pageToken, pageSize }) {
+async function listMediaItems({
+  getAccessToken,
+  metrics,
+  pageToken,
+  pageSize,
+}) {
   const params = new URLSearchParams({
     pageSize: pageSize.toString(),
   });
   if (pageToken) {
-    params.set('pageToken', pageToken);
+    params.set("pageToken", pageToken);
   }
   const url = `${API_BASE}/mediaItems?${params.toString()}`;
+  console.log(
+    "listMediaItems: pageSize=",
+    pageSize,
+    "pageToken=",
+    pageToken ? "[present]" : "[none]",
+  );
+
   return apiRequest({ url, getAccessToken, metrics });
 }
 
@@ -138,7 +152,7 @@ async function searchMediaItems({
       dateFilter,
     },
   };
-  return apiRequest({ url, method: 'POST', body, getAccessToken, metrics });
+  return apiRequest({ url, method: "POST", body, getAccessToken, metrics });
 }
 
 async function getMediaItem({ getAccessToken, metrics, mediaItemId }) {

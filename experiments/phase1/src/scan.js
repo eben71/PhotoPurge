@@ -1,19 +1,20 @@
-const fs = require('fs');
-const fsp = require('fs/promises');
-const path = require('path');
+const fs = require("fs");
+const fsp = require("fs/promises");
+const path = require("path");
 
-const { getValidAccessToken, requireEnv } = require('./auth');
+const { getValidAccessToken, requireEnv } = require("./auth");
 const {
   createMetrics,
   listMediaItems,
   searchMediaItems,
-} = require('./google-photos');
+} = require("./google-photos");
 
-const RUNS_DIR = path.join(__dirname, '..', 'runs');
+const RUNS_DIR = path.join(__dirname, "..", "runs");
 const SAMPLE_URL_LIMIT = 100;
 const DAILY_QUOTA_REQUESTS = 10000;
 
 const TIER_LIMITS = {
+  test: 10,
   small: 1000,
   medium: 10000,
   large: 50000,
@@ -23,7 +24,7 @@ function parseArgs(argv) {
   const options = {
     tier: null,
     maxItems: null,
-    tokenId: 'default',
+    tokenId: "default",
     outputPrefix: null,
     saveBaseline: false,
     searchSince: null,
@@ -32,26 +33,26 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     switch (arg) {
-      case '--tier':
+      case "--tier":
         options.tier = argv[i + 1];
         i += 1;
         break;
-      case '--max-items':
+      case "--max-items":
         options.maxItems = Number(argv[i + 1]);
         i += 1;
         break;
-      case '--token-id':
+      case "--token-id":
         options.tokenId = argv[i + 1];
         i += 1;
         break;
-      case '--output-prefix':
+      case "--output-prefix":
         options.outputPrefix = argv[i + 1];
         i += 1;
         break;
-      case '--save-baseline':
+      case "--save-baseline":
         options.saveBaseline = true;
         break;
-      case '--search-since':
+      case "--search-since":
         options.searchSince = argv[i + 1];
         i += 1;
         break;
@@ -68,7 +69,7 @@ function resolveMaxItems(tier, maxItems) {
     return maxItems;
   }
   if (!tier) {
-    throw new Error('Either --tier or --max-items is required');
+    throw new Error("Either --tier or --max-items is required");
   }
   const limit = TIER_LIMITS[tier];
   if (!limit) {
@@ -88,7 +89,7 @@ function toDateParts(date) {
 function buildDateFilter(searchSince) {
   const start = new Date(`${searchSince}T00:00:00Z`);
   if (Number.isNaN(start.getTime())) {
-    throw new Error('Invalid --search-since date (expected YYYY-MM-DD)');
+    throw new Error("Invalid --search-since date (expected YYYY-MM-DD)");
   }
   const end = new Date();
   return {
@@ -102,7 +103,7 @@ function buildDateFilter(searchSince) {
 }
 
 function createRunId() {
-  return new Date().toISOString().replace(/[:.]/g, '-');
+  return new Date().toISOString().replace(/[:.]/g, "-");
 }
 
 function initMetadataCounters() {
@@ -146,9 +147,9 @@ async function ensureRunsDir() {
 }
 
 async function run() {
-  requireEnv('CLIENT_ID');
-  requireEnv('CLIENT_SECRET');
-  requireEnv('REDIRECT_URI');
+  requireEnv("CLIENT_ID");
+  requireEnv("CLIENT_SECRET");
+  requireEnv("REDIRECT_URI");
 
   const options = parseArgs(process.argv.slice(2));
   const maxItems = resolveMaxItems(options.tier, options.maxItems);
@@ -166,9 +167,9 @@ async function run() {
   const metadataCounters = initMetadataCounters();
   const sampleUrls = [];
 
-  const itemsStream = fs.createWriteStream(itemsFile, { flags: 'a' });
+  const itemsStream = fs.createWriteStream(itemsFile, { flags: "a" });
   const baselineStream = baselineFile
-    ? fs.createWriteStream(baselineFile, { flags: 'a' })
+    ? fs.createWriteStream(baselineFile, { flags: "a" })
     : null;
 
   const getAccessToken = ({ forceRefresh = false } = {}) =>
@@ -249,7 +250,7 @@ async function run() {
 
   const runReport = {
     run_id: runId,
-    mode: dateFilter ? 'search' : 'list',
+    mode: dateFilter ? "search" : "list",
     tier: options.tier,
     max_items: maxItems,
     started_at: startedAt.toISOString(),
@@ -260,7 +261,10 @@ async function run() {
       ? Math.round((totalItems / metrics.total_requests) * 100) / 100
       : 0,
     request_metrics: metrics,
-    metadata_completeness: buildMetadataCompleteness(metadataCounters, totalItems),
+    metadata_completeness: buildMetadataCompleteness(
+      metadataCounters,
+      totalItems,
+    ),
     url_samples: sampleUrls,
     memory_usage_estimate: {
       rss_mb: Math.round((process.memoryUsage().rss / 1024 / 1024) * 100) / 100,
@@ -284,6 +288,6 @@ async function run() {
 }
 
 run().catch((error) => {
-  console.error('Scan failed:', error.message);
+  console.error("Scan failed:", error.message);
   process.exitCode = 1;
 });

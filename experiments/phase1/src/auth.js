@@ -1,15 +1,63 @@
-const crypto = require('crypto');
-const fs = require('fs/promises');
-const path = require('path');
-const http = require('http');
-const readline = require('readline');
-const { fetchWithTimeout } = require('./http');
+const crypto = require("crypto");
+const fs = require("fs/promises");
+const fsSync = require("fs");
+const path = require("path");
+const http = require("http");
+const readline = require("readline");
+const { fetchWithTimeout } = require("./http");
 
-const TOKEN_DIR = path.join(__dirname, '..', '.tokens');
+function parseEnvValue(raw) {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return "";
+  }
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+function loadEnvFromFile(filePath) {
+  if (!fsSync.existsSync(filePath)) {
+    return false;
+  }
+  const contents = fsSync.readFileSync(filePath, "utf8");
+  contents.split(/\r?\n/).forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) {
+      return;
+    }
+    const separatorIndex = trimmed.indexOf("=");
+    if (separatorIndex === -1) {
+      return;
+    }
+    const key = trimmed.slice(0, separatorIndex).trim();
+    const value = parseEnvValue(trimmed.slice(separatorIndex + 1));
+    if (key && process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  });
+  return true;
+}
+
+function loadEnvIfPresent() {
+  const repoRootEnv = path.join(__dirname, "..", "..", "..", ".env");
+  const cwdEnv = path.join(process.cwd(), ".env");
+  if (!loadEnvFromFile(cwdEnv)) {
+    loadEnvFromFile(repoRootEnv);
+  }
+}
+
+loadEnvIfPresent();
+
+const TOKEN_DIR = path.join(__dirname, "..", ".tokens");
 const TOKEN_FILE_VERSION = 1;
-const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
-const AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
-const OAUTH_SCOPE = 'https://www.googleapis.com/auth/photoslibrary.readonly';
+const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
+const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
+const OAUTH_SCOPE = "https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata";
 const TOKEN_TIMEOUT_MS = 20000;
 
 function requireEnv(name) {
@@ -23,7 +71,7 @@ function requireEnv(name) {
 function sanitizeTokenId(tokenId) {
   const cleaned = tokenId.trim();
   if (!/^[a-zA-Z0-9_-]+$/.test(cleaned)) {
-    throw new Error('token-id must be alphanumeric, dash, or underscore only');
+    throw new Error("token-id must be alphanumeric, dash, or underscore only");
   }
   return cleaned;
 }
@@ -39,8 +87,8 @@ async function ensureTokenDir() {
 
 function parseRedirectUri(redirectUri) {
   const parsed = new URL(redirectUri);
-  if (parsed.protocol !== 'http:') {
-    throw new Error('redirect URI must be http:// for local OAuth callback');
+  if (parsed.protocol !== "http:") {
+    throw new Error("redirect URI must be http:// for local OAuth callback");
   }
   return {
     hostname: parsed.hostname,
@@ -51,16 +99,16 @@ function parseRedirectUri(redirectUri) {
 
 function base64UrlEncode(buffer) {
   return buffer
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '');
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
 }
 
 function generatePkcePair() {
   const verifier = base64UrlEncode(crypto.randomBytes(32));
   const challenge = base64UrlEncode(
-    crypto.createHash('sha256').update(verifier).digest(),
+    crypto.createHash("sha256").update(verifier).digest(),
   );
   return { verifier, challenge };
 }
@@ -76,7 +124,7 @@ function promptHidden(question) {
     rl.stdoutMuted = true;
     rl._writeToOutput = function writeToOutput(stringToWrite) {
       if (rl.stdoutMuted) {
-        rl.output.write('*');
+        rl.output.write("*");
       } else {
         rl.output.write(stringToWrite);
       }
@@ -98,7 +146,7 @@ async function getEncryptionPassword() {
   if (cachedPassword) {
     return cachedPassword;
   }
-  cachedPassword = await promptHidden('Token encryption password: ');
+  cachedPassword = await promptHidden("Token encryption password: ");
   return cachedPassword;
 }
 
@@ -106,17 +154,17 @@ function encryptTokens(tokens, password) {
   const salt = crypto.randomBytes(16);
   const iv = crypto.randomBytes(12);
   const key = crypto.scryptSync(password, salt, 32);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  const payload = Buffer.from(JSON.stringify(tokens), 'utf8');
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const payload = Buffer.from(JSON.stringify(tokens), "utf8");
   const encrypted = Buffer.concat([cipher.update(payload), cipher.final()]);
   const tag = cipher.getAuthTag();
 
   return {
     version: TOKEN_FILE_VERSION,
-    salt: salt.toString('base64'),
-    iv: iv.toString('base64'),
-    tag: tag.toString('base64'),
-    data: encrypted.toString('base64'),
+    salt: salt.toString("base64"),
+    iv: iv.toString("base64"),
+    tag: tag.toString("base64"),
+    data: encrypted.toString("base64"),
   };
 }
 
@@ -124,26 +172,26 @@ function decryptTokens(envelope, password) {
   if (envelope.version !== TOKEN_FILE_VERSION) {
     throw new Error(`Unsupported token file version ${envelope.version}`);
   }
-  const salt = Buffer.from(envelope.salt, 'base64');
-  const iv = Buffer.from(envelope.iv, 'base64');
-  const tag = Buffer.from(envelope.tag, 'base64');
-  const data = Buffer.from(envelope.data, 'base64');
+  const salt = Buffer.from(envelope.salt, "base64");
+  const iv = Buffer.from(envelope.iv, "base64");
+  const tag = Buffer.from(envelope.tag, "base64");
+  const data = Buffer.from(envelope.data, "base64");
   const key = crypto.scryptSync(password, salt, 32);
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
   decipher.setAuthTag(tag);
   const decrypted = Buffer.concat([decipher.update(data), decipher.final()]);
-  return JSON.parse(decrypted.toString('utf8'));
+  return JSON.parse(decrypted.toString("utf8"));
 }
 
 async function loadTokens(tokenId) {
   const filePath = tokenPathFor(tokenId);
   try {
-    const fileContents = await fs.readFile(filePath, 'utf8');
+    const fileContents = await fs.readFile(filePath, "utf8");
     const envelope = JSON.parse(fileContents);
     const password = await getEncryptionPassword();
     return decryptTokens(envelope, password);
   } catch (error) {
-    if (error.code === 'ENOENT') {
+    if (error.code === "ENOENT") {
       return null;
     }
     throw error;
@@ -164,14 +212,14 @@ function buildAuthUrl({ clientId, redirectUri, state, codeChallenge }) {
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
-    response_type: 'code',
+    response_type: "code",
     scope: OAUTH_SCOPE,
-    access_type: 'offline',
-    prompt: 'consent',
+    access_type: "offline",
+    prompt: "consent",
     state,
-    include_granted_scopes: 'true',
+    include_granted_scopes: "true",
     code_challenge: codeChallenge,
-    code_challenge_method: 'S256',
+    code_challenge_method: "S256",
   });
 
   return `${AUTH_ENDPOINT}?${params.toString()}`;
@@ -185,28 +233,30 @@ function waitForAuthCode(redirectUri, expectedState) {
       const url = new URL(req.url, `http://${hostname}:${port}`);
       if (url.pathname !== pathname) {
         res.writeHead(404);
-        res.end('Not Found');
+        res.end("Not Found");
         return;
       }
 
-      const code = url.searchParams.get('code');
-      const state = url.searchParams.get('state');
+      const code = url.searchParams.get("code");
+      const state = url.searchParams.get("state");
       if (!code || state !== expectedState) {
         res.writeHead(400);
-        res.end('Invalid OAuth response');
+        res.end("Invalid OAuth response");
         server.close();
-        reject(new Error('OAuth state mismatch or missing code'));
+        reject(new Error("OAuth state mismatch or missing code"));
         return;
       }
 
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      res.end('Authentication complete. You can close this window.');
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("Authentication complete. You can close this window.");
       server.close();
       resolve(code);
     });
 
     server.listen(port, hostname, () => {
-      console.log(`Listening for OAuth callback on ${hostname}:${port}${pathname}`);
+      console.log(
+        `Listening for OAuth callback on ${hostname}:${port}${pathname}`,
+      );
     });
   });
 }
@@ -222,7 +272,7 @@ async function exchangeAuthCodeForTokens({
     client_id: clientId,
     client_secret: clientSecret,
     redirect_uri: redirectUri,
-    grant_type: 'authorization_code',
+    grant_type: "authorization_code",
     code,
     code_verifier: codeVerifier,
   });
@@ -230,8 +280,8 @@ async function exchangeAuthCodeForTokens({
   const response = await fetchWithTimeout(
     TOKEN_ENDPOINT,
     {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body,
     },
     TOKEN_TIMEOUT_MS,
@@ -254,23 +304,19 @@ async function exchangeAuthCodeForTokens({
   };
 }
 
-async function refreshAccessToken({
-  clientId,
-  clientSecret,
-  refreshToken,
-}) {
+async function refreshAccessToken({ clientId, clientSecret, refreshToken }) {
   const body = new URLSearchParams({
     client_id: clientId,
     client_secret: clientSecret,
-    grant_type: 'refresh_token',
+    grant_type: "refresh_token",
     refresh_token: refreshToken,
   });
 
   const response = await fetchWithTimeout(
     TOKEN_ENDPOINT,
     {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body,
     },
     TOKEN_TIMEOUT_MS,
@@ -302,9 +348,9 @@ function isTokenExpired(tokens) {
 }
 
 async function ensureTokens(tokenId) {
-  const clientId = requireEnv('CLIENT_ID');
-  const clientSecret = requireEnv('CLIENT_SECRET');
-  const redirectUri = requireEnv('REDIRECT_URI');
+  const clientId = requireEnv("CLIENT_ID");
+  const clientSecret = requireEnv("CLIENT_SECRET");
+  const redirectUri = requireEnv("REDIRECT_URI");
 
   let tokens = await loadTokens(tokenId);
   if (!tokens) {
@@ -317,7 +363,7 @@ async function ensureTokens(tokenId) {
       codeChallenge: challenge,
     });
 
-    console.log('Open the following URL to authorize:');
+    console.log("Open the following URL to authorize:");
     console.log(authUrl);
 
     const code = await waitForAuthCode(redirectUri, state);
@@ -328,6 +374,17 @@ async function ensureTokens(tokenId) {
       code,
       codeVerifier: verifier,
     });
+    if (
+      !tokens.scope ||
+      !tokens.scope.includes(
+        "https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata",
+      )
+    ) {
+      throw new Error(
+        `OAuth token missing required scope. Got: ${tokens.scope}`,
+      );
+    }
+
     await saveTokens(tokenId, tokens);
   }
 
@@ -340,13 +397,16 @@ async function ensureTokens(tokenId) {
 }
 
 async function getValidAccessToken({ tokenId, metrics, forceRefresh = false }) {
-  const { tokens: existingTokens, clientId, clientSecret } =
-    await ensureTokens(tokenId);
+  const {
+    tokens: existingTokens,
+    clientId,
+    clientSecret,
+  } = await ensureTokens(tokenId);
   let tokens = existingTokens;
 
   if (forceRefresh || isTokenExpired(tokens)) {
     if (!tokens.refresh_token) {
-      throw new Error('Missing refresh token; re-authentication required.');
+      throw new Error("Missing refresh token; re-authentication required.");
     }
     const refreshed = await refreshAccessToken({
       clientId,

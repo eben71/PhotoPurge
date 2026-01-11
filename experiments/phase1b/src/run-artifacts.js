@@ -48,6 +48,7 @@ function createRunRecord({ tier, maxItemCount, sampleSize, runId }) {
       completed_at: null,
       duration_seconds: null,
     },
+    picked_item_shape: null,
     metadata_completeness: null,
     url_probe: null,
     user_friction_notes: "",

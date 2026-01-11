@@ -433,6 +433,7 @@ async function getValidAccessToken({ tokenId, metrics, forceRefresh = false }) {
 
 module.exports = {
   getValidAccessToken,
+  getRequestedScopes: () => OAUTH_SCOPE,
   loadTokens,
   requireEnv,
 };

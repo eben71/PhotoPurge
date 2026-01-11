@@ -19,6 +19,20 @@ function hasValue(value) {
   return value !== undefined && value !== null && value !== "";
 }
 
+function getNestedValue(item, path) {
+  return path.reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), item);
+}
+
+function getFirstValue(item, paths) {
+  for (const path of paths) {
+    const value = getNestedValue(item, path);
+    if (hasValue(value)) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
 function detectChecksumFields(item) {
   const fields = [];
   const queue = [{ path: "", value: item }];
@@ -44,44 +58,54 @@ function recordItemMetadata(stats, item) {
   stats.total_items += 1;
   const missing = [];
 
-  if (hasValue(item.id)) {
+  const id = getFirstValue(item, [["id"], ["mediaFile", "id"]]);
+  if (hasValue(id)) {
     stats.field_counts.id += 1;
   } else {
     missing.push("id");
   }
 
-  if (hasValue(item.filename)) {
+  const filename = getFirstValue(item, [["mediaFile", "filename"], ["filename"]]);
+  if (hasValue(filename)) {
     stats.field_counts.filename += 1;
   } else {
     missing.push("filename");
   }
 
-  if (hasValue(item.mimeType)) {
+  const mimeType = getFirstValue(item, [["mediaFile", "mimeType"], ["mimeType"]]);
+  if (hasValue(mimeType)) {
     stats.field_counts.mimeType += 1;
   } else {
     missing.push("mimeType");
   }
 
-  const metadata = item.mediaMetadata || {};
-  if (hasValue(metadata.creationTime)) {
+  const creationTime = getFirstValue(item, [
+    ["mediaFile", "creationTime"],
+    ["mediaFile", "createTime"],
+    ["mediaMetadata", "creationTime"],
+  ]);
+  if (hasValue(creationTime)) {
     stats.field_counts.creationTime += 1;
   } else {
     missing.push("creationTime");
   }
 
-  if (hasValue(metadata.width)) {
+  const width = getFirstValue(item, [["mediaFile", "width"], ["mediaMetadata", "width"]]);
+  if (hasValue(width)) {
     stats.field_counts.width += 1;
   } else {
     missing.push("width");
   }
 
-  if (hasValue(metadata.height)) {
+  const height = getFirstValue(item, [["mediaFile", "height"], ["mediaMetadata", "height"]]);
+  if (hasValue(height)) {
     stats.field_counts.height += 1;
   } else {
     missing.push("height");
   }
 
-  if (hasValue(item.baseUrl)) {
+  const baseUrl = getFirstValue(item, [["mediaFile", "baseUrl"], ["baseUrl"]]);
+  if (hasValue(baseUrl)) {
     stats.field_counts.baseUrl += 1;
   } else {
     missing.push("baseUrl");
@@ -89,7 +113,7 @@ function recordItemMetadata(stats, item) {
 
   if (missing.length > 0 && stats.missing_samples.length < 10) {
     stats.missing_samples.push({
-      id: item.id || null,
+      id: id || null,
       missing,
     });
   }

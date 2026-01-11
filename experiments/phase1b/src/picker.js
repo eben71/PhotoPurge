@@ -1,7 +1,10 @@
 const fs = require("fs");
+const fsPromises = require("fs/promises");
 const path = require("path");
+const { once } = require("events");
+const { finished } = require("stream/promises");
 const { parseArgs } = require("./args");
-const { getValidAccessToken } = require("./auth");
+const { getRequestedScopes, getValidAccessToken } = require("./auth");
 const { sleep } = require("./http");
 const { createSession, getSession, listMediaItems } = require("./picker-api");
 const {
@@ -21,9 +24,96 @@ const { resolveTierConfig } = require("./tier-config");
 const PAGE_SIZE = 100;
 const POLL_BASE_DELAY_MS = 1000;
 const POLL_MAX_DELAY_MS = 10000;
+const NDJSON_SELF_CHECK_LINES = 3;
 
 function nextPollDelayMs(attempt) {
   return Math.min(POLL_MAX_DELAY_MS, POLL_BASE_DELAY_MS * 2 ** (attempt - 1));
+}
+
+function hasValue(value) {
+  return value !== undefined && value !== null && value !== "";
+}
+
+function getFirstValue(item, paths) {
+  for (const pathParts of paths) {
+    let current = item;
+    for (const key of pathParts) {
+      if (!current || current[key] === undefined) {
+        current = undefined;
+        break;
+      }
+      current = current[key];
+    }
+    if (hasValue(current)) {
+      return current;
+    }
+  }
+  return undefined;
+}
+
+async function writeNdjsonLine(stream, line) {
+  if (!stream.write(line)) {
+    await once(stream, "drain");
+  }
+}
+
+async function validateNdjsonSample(filePath, maxLines) {
+  const data = await fsPromises.readFile(filePath, "utf8");
+  const lines = data.split(/\r?\n/).filter((line) => line.length > 0);
+  const sample = lines.slice(0, maxLines);
+  for (const line of sample) {
+    try {
+      JSON.parse(line);
+    } catch (error) {
+      throw new Error(
+        "Invalid NDJSON output (first lines not parseable). Aborting.",
+      );
+    }
+  }
+}
+
+function logPickedItemShape(item, run) {
+  if (run.picked_item_shape) {
+    return;
+  }
+  const topLevelKeys = Object.keys(item || {});
+  const mediaFileKeys = item && item.mediaFile ? Object.keys(item.mediaFile) : null;
+  run.picked_item_shape = {
+    top_level_keys: topLevelKeys,
+    mediaFile_keys: mediaFileKeys,
+  };
+
+  const id = getFirstValue(item, [["id"], ["mediaFile", "id"]]);
+  const baseUrl = getFirstValue(item, [["mediaFile", "baseUrl"], ["baseUrl"]]);
+  const mimeType = getFirstValue(item, [["mediaFile", "mimeType"], ["mimeType"]]);
+  const filename = getFirstValue(item, [["mediaFile", "filename"], ["filename"]]);
+  const creationTime = getFirstValue(item, [
+    ["mediaFile", "creationTime"],
+    ["mediaFile", "createTime"],
+    ["mediaMetadata", "creationTime"],
+  ]);
+  const width = getFirstValue(item, [["mediaFile", "width"], ["mediaMetadata", "width"]]);
+  const height = getFirstValue(item, [["mediaFile", "height"], ["mediaMetadata", "height"]]);
+
+  console.log(
+    `[diag] picked_item_top_level_keys=${JSON.stringify(topLevelKeys)}`,
+  );
+  if (mediaFileKeys) {
+    console.log(
+      `[diag] picked_item_mediaFile_keys=${JSON.stringify(mediaFileKeys)}`,
+    );
+  } else {
+    console.log("[diag] picked_item_mediaFile_keys=null");
+  }
+  console.log(
+    `[diag] picked_item_fields hasId=${hasValue(id)} hasMediaFile=${Boolean(
+      item && item.mediaFile,
+    )} hasBaseUrl=${hasValue(baseUrl)} hasMimeType=${hasValue(
+      mimeType,
+    )} hasFilename=${hasValue(filename)} hasCreationTime=${hasValue(
+      creationTime,
+    )} hasWidth=${hasValue(width)} hasHeight=${hasValue(height)}`,
+  );
 }
 
 async function pollForCompletion({ accessToken, sessionId, run, timeoutMs }) {
@@ -66,6 +156,7 @@ async function listAllMediaItems({
   accessToken,
   sessionId,
   itemsStream,
+  itemsPath,
   run,
   metadataStats,
   sampleSize,
@@ -74,6 +165,7 @@ async function listAllMediaItems({
   const seenTokens = new Set();
   let itemIndex = 0;
   const sampleItems = [];
+  let ndjsonValidated = false;
 
   do {
     const response = await listMediaItems({
@@ -87,17 +179,35 @@ async function listAllMediaItems({
 
     const items = response.mediaItems || [];
     run.listing.items_per_page.push(items.length);
+    if (!ndjsonValidated && items.length > 0) {
+      logPickedItemShape(items[0], run);
+    }
 
     for (const item of items) {
-      itemsStream.write(`${JSON.stringify(item)}\n`);
+      await writeNdjsonLine(itemsStream, `${JSON.stringify(item)}\n`);
       run.listing.selected_count_total += 1;
       recordItemMetadata(metadataStats, item);
+      const itemId = getFirstValue(item, [["id"], ["mediaFile", "id"]]);
       sampleWithReservoir(sampleItems, {
-        id: item.id,
-        baseUrl: item.baseUrl,
-        mimeType: item.mimeType,
+        id: itemId,
+        baseUrl: getFirstValue(item, [["mediaFile", "baseUrl"], ["baseUrl"]]),
+        mimeType: getFirstValue(item, [["mediaFile", "mimeType"], ["mimeType"]]),
       }, itemIndex, sampleSize);
       itemIndex += 1;
+    }
+
+    console.log(
+      `[diag] wrote ${items.length} items this page (total ${run.listing.selected_count_total})`,
+    );
+
+    if (!ndjsonValidated && run.listing.selected_count_total > 0) {
+      try {
+        await validateNdjsonSample(itemsPath, NDJSON_SELF_CHECK_LINES);
+        ndjsonValidated = true;
+      } catch (error) {
+        run.termination_reason = "ndjson_invalid";
+        throw error;
+      }
     }
 
     pageToken = response.nextPageToken || null;
@@ -136,11 +246,13 @@ async function runPicker() {
   let exitCode = 0;
 
   try {
+    console.log(`[diag] requested_scopes=${getRequestedScopes()}`);
     const accessToken = await getValidAccessToken({
       tokenId: args.tokenId,
       metrics: run.auth,
     });
 
+    console.log("[phase1b] create session");
     const session = await createSession({
       accessToken,
       maxItemCount: tierConfig.maxItemCount,
@@ -154,9 +266,11 @@ async function runPicker() {
     };
 
     console.log(`Session created: ${session.id}`);
+    console.log("[phase1b] open picker url");
     console.log(`Open picker URL: ${session.pickerUri}`);
     console.log("Select media, then return here to continue polling.");
 
+    console.log("[phase1b] poll session");
     await pollForCompletion({
       accessToken,
       sessionId: session.id,
@@ -164,6 +278,7 @@ async function runPicker() {
       timeoutMs: tierConfig.pollTimeoutMs,
     });
 
+    console.log("[phase1b] list selected media items");
     itemsStream = fs.createWriteStream(paths.itemsPath, { flags: "w" });
     run.listing.started_at = new Date().toISOString();
     const listStart = Date.now();
@@ -172,6 +287,7 @@ async function runPicker() {
       accessToken,
       sessionId: session.id,
       itemsStream,
+      itemsPath: paths.itemsPath,
       run,
       metadataStats,
       sampleSize: args.sampleSize,
@@ -202,7 +318,12 @@ async function runPicker() {
     console.error(error.message);
   } finally {
     if (itemsStream) {
-      await new Promise((resolve) => itemsStream.end(resolve));
+      itemsStream.end();
+      await finished(itemsStream);
+      const stat = await fsPromises.stat(paths.itemsPath);
+      console.log(
+        `[diag] items file path=${paths.itemsPath} size_bytes=${stat.size}`,
+      );
     }
     run.completed_at = new Date().toISOString();
     await writeRunJson(paths.runJsonPath, run);

@@ -83,7 +83,15 @@ async function ensureStreamSynced(stream) {
   if (stream.fd === null || stream.fd === undefined) {
     await once(stream, "open");
   }
-  await fsPromises.fsync(stream.fd);
+  await new Promise((resolve, reject) => {
+    fs.fsync(stream.fd, (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
 }
 
 async function validateNdjsonSample(filePath, maxLines) {

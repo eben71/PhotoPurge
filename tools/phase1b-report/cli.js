@@ -84,13 +84,13 @@ async function main() {
   const topPairs = Number(args.topPairs ?? 100);
   const includeSingles = Boolean(args.includeSingles);
   const outputDir = args.out || "experiments/phase1b/reports";
-  const downloadImages = Boolean(args.downloadImages);
+  const downloadImages = args.noDownloadImages ? false : true;
   const accessToken = args.accessToken || process.env.PHASE1B_REPORT_ACCESS_TOKEN;
   const imageSize = args.imageSize || "w600-h600";
 
   if (!itemsPath || !similarityPath || !runPath) {
     throw new Error(
-      "Usage: node tools/phase1b-report/cli.js --items <items.ndjson> --similarity <similarity.ndjson> --run <run.json> --out <dir> [--threshold 70] [--topPairs 100] [--includeSingles] [--downloadImages] [--accessToken <token>]",
+      "Usage: node tools/phase1b-report/cli.js --items <items.ndjson> --similarity <similarity.ndjson> --run <run.json> --out <dir> [--threshold 70] [--topPairs 100] [--includeSingles] [--noDownloadImages] [--accessToken <token>]",
     );
   }
 
@@ -127,13 +127,13 @@ async function main() {
   const outDir = path.join(reportRoot, "report");
   if (downloadImages) {
     if (!accessToken) {
-      throw new Error(
-        "Missing access token for image download. Provide --accessToken or set PHASE1B_REPORT_ACCESS_TOKEN.",
+      console.warn(
+        "[phase1b] report: skipping image downloads (missing access token).",
       );
-    }
-    const imagesDir = path.join(reportRoot, "images");
-    await fs.mkdir(imagesDir, { recursive: true });
-    for (const item of itemsById.values()) {
+    } else {
+      const imagesDir = path.join(reportRoot, "images");
+      await fs.mkdir(imagesDir, { recursive: true });
+      for (const item of itemsById.values()) {
       if (!item.baseUrl) {
         continue;
       }
@@ -153,6 +153,7 @@ async function main() {
       } catch (error) {
         continue;
       }
+    }
     }
   }
   await writeReport({

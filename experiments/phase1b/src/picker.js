@@ -29,7 +29,10 @@ const POLL_MAX_DELAY_MS = 10000;
 const NDJSON_SELF_CHECK_LINES = 3;
 const REPORT_TOP_PAIRS = 100;
 
-async function runPhase1bReport({ runId, paths, similarityThreshold }) {
+async function runPhase1bReport(
+  { runId, paths, similarityThreshold },
+  { accessToken } = {},
+) {
   const reportScript = path.join(__dirname, "..", "..", "..", "tools", "phase1b-report", "cli.js");
   const reportOutput = path.join(__dirname, "..", "reports");
   const args = [
@@ -51,7 +54,13 @@ async function runPhase1bReport({ runId, paths, similarityThreshold }) {
   ];
 
   return new Promise((resolve, reject) => {
-    const child = spawn("node", args, { stdio: "inherit" });
+    const child = spawn("node", args, {
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        PHASE1B_REPORT_ACCESS_TOKEN: accessToken || process.env.PHASE1B_REPORT_ACCESS_TOKEN,
+      },
+    });
     child.on("error", reject);
     child.on("close", (code) => {
       if (code !== 0) {
@@ -500,7 +509,7 @@ async function runPicker() {
           runId,
           paths,
           similarityThreshold: run.similarity_probe?.near_match_threshold ?? 70,
-        });
+        }, { accessToken });
         const reportPath = path.join(
           __dirname,
           "..",

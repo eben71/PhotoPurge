@@ -90,7 +90,8 @@ pnpm report:phase1b -- \
   --topPairs 100
 ```
 
-To download images into the report for offline viewing (requires an access token):
+By default the report generator downloads thumbnails when `PHASE1B_REPORT_ACCESS_TOKEN`
+is available. To explicitly cache images for offline viewing:
 
 ```bash
 PHASE1B_REPORT_ACCESS_TOKEN=... pnpm report:phase1b -- \
@@ -98,7 +99,18 @@ PHASE1B_REPORT_ACCESS_TOKEN=... pnpm report:phase1b -- \
   --items /mnt/data/2026-01-11T13-24-14-332Z-test-items.ndjson \
   --similarity /mnt/data/2026-01-11T13-24-14-332Z-test-similarity.ndjson \
   --out experiments/phase1b/reports \
-  --downloadImages
+  --topPairs 100
+```
+
+To skip caching and use remote `baseUrl` images only:
+
+```bash
+pnpm report:phase1b -- \
+  --run /mnt/data/2026-01-11T13-24-14-332Z-test-run.json \
+  --items /mnt/data/2026-01-11T13-24-14-332Z-test-items.ndjson \
+  --similarity /mnt/data/2026-01-11T13-24-14-332Z-test-similarity.ndjson \
+  --out experiments/phase1b/reports \
+  --noDownloadImages
 ```
 
 Open the report at:

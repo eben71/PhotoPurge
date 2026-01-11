@@ -52,9 +52,25 @@ function getFirstValue(item, paths) {
 }
 
 async function writeNdjsonLine(stream, line) {
-  if (!stream.write(line)) {
+  await new Promise((resolve, reject) => {
+    stream.write(line, (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+  if (!stream.writableEnded && stream.writableLength > 0) {
     await once(stream, "drain");
   }
+}
+
+async function ensureStreamSynced(stream) {
+  if (stream.fd === null || stream.fd === undefined) {
+    await once(stream, "open");
+  }
+  await fsPromises.fsync(stream.fd);
 }
 
 async function validateNdjsonSample(filePath, maxLines) {
@@ -202,6 +218,7 @@ async function listAllMediaItems({
 
     if (!ndjsonValidated && run.listing.selected_count_total > 0) {
       try {
+        await ensureStreamSynced(itemsStream);
         await validateNdjsonSample(itemsPath, NDJSON_SELF_CHECK_LINES);
         ndjsonValidated = true;
       } catch (error) {

@@ -13,6 +13,7 @@ test("writeReport emits core html files", async () => {
       {
         id: "a",
         baseUrl: "https://example.test/a",
+        localImage: "images/a.jpg",
         filename: "a.jpg",
         createTime: "2026-01-01T00:00:00Z",
         dimensions: "100x100",
@@ -63,4 +64,5 @@ test("writeReport emits core html files", async () => {
   );
   assert.ok(indexHtml.includes("Phase 1b Report"));
   assert.ok(clusterHtml.includes("Cluster cluster1"));
+  assert.ok(clusterHtml.includes("images/a.jpg"));
 });

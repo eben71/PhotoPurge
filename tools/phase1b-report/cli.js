@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 const fs = require("fs/promises");
+const crypto = require("crypto");
 const path = require("path");
-const { buildClusters, pairKey } = require("./cluster");
+const { buildClusters } = require("./cluster");
 const { writeReport } = require("./report");
 
 function parseArgs(argv) {
@@ -45,6 +46,7 @@ function pickItemMetadata(item) {
       metadata.width && metadata.height
         ? `${metadata.width}x${metadata.height}`
         : null,
+    localImage: null,
   };
 }
 
@@ -82,10 +84,13 @@ async function main() {
   const topPairs = Number(args.topPairs ?? 100);
   const includeSingles = Boolean(args.includeSingles);
   const outputDir = args.out || "experiments/phase1b/reports";
+  const downloadImages = Boolean(args.downloadImages);
+  const accessToken = args.accessToken || process.env.PHASE1B_REPORT_ACCESS_TOKEN;
+  const imageSize = args.imageSize || "w600-h600";
 
   if (!itemsPath || !similarityPath || !runPath) {
     throw new Error(
-      "Usage: node tools/phase1b-report/cli.js --items <items.ndjson> --similarity <similarity.ndjson> --run <run.json> --out <dir> [--threshold 70] [--topPairs 100] [--includeSingles]",
+      "Usage: node tools/phase1b-report/cli.js --items <items.ndjson> --similarity <similarity.ndjson> --run <run.json> --out <dir> [--threshold 70] [--topPairs 100] [--includeSingles] [--downloadImages] [--accessToken <token>]",
     );
   }
 
@@ -118,7 +123,38 @@ async function main() {
     includeSingles,
   });
 
-  const outDir = path.join(outputDir, runId, "report");
+  const reportRoot = path.join(outputDir, runId);
+  const outDir = path.join(reportRoot, "report");
+  if (downloadImages) {
+    if (!accessToken) {
+      throw new Error(
+        "Missing access token for image download. Provide --accessToken or set PHASE1B_REPORT_ACCESS_TOKEN.",
+      );
+    }
+    const imagesDir = path.join(reportRoot, "images");
+    await fs.mkdir(imagesDir, { recursive: true });
+    for (const item of itemsById.values()) {
+      if (!item.baseUrl) {
+        continue;
+      }
+      const key = crypto.createHash("sha1").update(item.id).digest("hex");
+      const fileName = `${key}.jpg`;
+      const filePath = path.join(imagesDir, fileName);
+      try {
+        const response = await fetch(`${item.baseUrl}=${imageSize}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!response.ok) {
+          continue;
+        }
+        const buffer = Buffer.from(await response.arrayBuffer());
+        await fs.writeFile(filePath, buffer);
+        item.localImage = path.relative(outDir, filePath);
+      } catch (error) {
+        continue;
+      }
+    }
+  }
   await writeReport({
     outputDir: outDir,
     runId,

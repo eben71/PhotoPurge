@@ -11,10 +11,10 @@ function escapeHtml(value) {
 }
 
 function buildImageTag(item, sizeParam) {
-  if (!item || !item.baseUrl) {
+  if (!item || (!item.baseUrl && !item.localImage)) {
     return `<div class="missing">missing image</div>`;
   }
-  const src = `${item.baseUrl}${sizeParam}`;
+  const src = item.localImage ? item.localImage : `${item.baseUrl}${sizeParam}`;
   return `<img src="${escapeHtml(src)}" alt="${escapeHtml(item.id)}" loading="lazy" />`;
 }
 

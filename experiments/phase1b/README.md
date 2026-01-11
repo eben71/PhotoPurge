@@ -58,4 +58,6 @@ node experiments/phase1b/src/url-recheck.js --run-file experiments/phase1b/runs/
   downloaded bytes.
 - After a successful similarity probe, the picker run auto-generates a static HTML
   report under `experiments/phase1b/reports/<runId>/report/index.html`.
+- For offline viewing, re-run the report generator with `--downloadImages` and set
+  `PHASE1B_REPORT_ACCESS_TOKEN` to populate cached thumbnails.
 - This code is intentionally minimal and should not be promoted to production.

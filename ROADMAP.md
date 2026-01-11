@@ -79,12 +79,49 @@
 - [ ] **ADAPT:** limits tight → adjust scan strategy and retry
 - [ ] **STOP:** limits kill viability → reassess product direction
 
+### Phase 1 Conclusion (Library API)
+- **Library API whole-library enumeration: STOP / not viable**
+  - Evidence: [PHASE1_REPORT.md](PHASE1_REPORT.md) and sample runs under `experiments/phase1/runs/*.json`
+  - App-created-only scope returns 0 items for typical users
+
 ### CI Additions (Feasibility)
 - [ ] Add smoke tests to CI:
   - [ ] App boots in CI (headless)
   - [ ] Minimal health endpoint returns OK (even stubbed)
 
 > 🚨 **No further phases proceed without passing this gate**
+
+---
+
+## 1b — Phase 1b: Picker API Feasibility Spike (USER-SELECTED INGESTION)
+
+> **Goal:** Validate Picker session flow + ability to retrieve user-selected items at meaningful scale.
+
+### What We Must Measure
+- [ ] Selection friction & practical selection size (10, 200, 1k–5k or album-based)
+- [ ] Ability to list selected media items reliably
+- [ ] Content access works (Picker `baseUrl` fetch with Authorization header + required URL params)
+- [ ] Metadata coverage: id, createTime, filename, mimeType, dimensions; % with GPS if present
+- [ ] Duplicate/near-match feasibility:
+  - [ ] Exact duplicates via SHA-256 on downloaded bytes
+  - [ ] Near matches via pHash/embeddings on downloaded renditions
+
+### Red / Amber / Green Gates
+- **GREEN:** user can select/retrieve ≥1k items (or album), high content fetch success, metadata gaps <5%
+- **AMBER:** limited selection size or requires re-selection; URL refresh complexities; metadata gaps 5–20%
+- **RED:** can’t reliably retrieve content/metadata; selection too limited; metadata gaps >20%
+
+### Phase 1b Output
+- Update [DECISIONS.md](DECISIONS.md) and [RISK_REGISTER.md](RISK_REGISTER.md) with findings
+- Produce a short Phase 1b report (see `experiments/phase1b/` runs + notes)
+
+---
+
+## Risks / Open Questions (Feasibility)
+
+- Shared project quota scaling (parked for later deep dive)
+- No checksum/hash in API payloads → downloads required for exact duplicates
+- Location metadata is inconsistent/optional → only a negative filter
 
 ---
 

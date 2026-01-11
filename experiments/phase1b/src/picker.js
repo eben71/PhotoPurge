@@ -348,8 +348,6 @@ async function runPicker() {
     run.listing.started_at = new Date().toISOString();
     const listStart = Date.now();
 
-    const similarityLimit = 200;
-    const enableSimilarity = tierConfig.maxItemCount <= similarityLimit;
     const sampleItems = await listAllMediaItems({
       accessToken,
       sessionId: session.id,
@@ -358,8 +356,8 @@ async function runPicker() {
       run,
       metadataStats,
       sampleSize: args.sampleSize,
-      similarityCapture: enableSimilarity ? similarityCapture : null,
-      similarityLimit,
+      similarityCapture,
+      similarityLimit: 200,
     });
     run.listing.completed_at = new Date().toISOString();
     run.listing.duration_seconds = Number(
@@ -378,31 +376,52 @@ async function runPicker() {
       ...(await probeUrls(validSample, { accessToken })),
     };
 
-    if (!enableSimilarity) {
+    const similarityLimit = 200;
+    const selectedCount = run.listing.selected_count_total;
+    if (selectedCount > similarityLimit) {
       run.similarity_probe = {
         skipped: true,
-        reason: "tier_limit_exceeds_threshold",
-        max_items: similarityLimit,
+        reason: "too_many_items",
+        item_count: selectedCount,
       };
     } else if (similarityCapture.skipped_reason) {
       run.similarity_probe = {
         skipped: true,
         reason: similarityCapture.skipped_reason,
-        max_items: similarityLimit,
+        item_count: selectedCount,
       };
     } else if (similarityCapture.items.length < 2) {
       run.similarity_probe = {
         skipped: true,
         reason: "insufficient_items",
-        max_items: similarityLimit,
+        item_count: similarityCapture.items.length,
       };
     } else {
-      run.similarity_probe = await runSimilarityProbe({
-        items: similarityCapture.items,
-        accessToken,
-        outputPath: paths.similarityPath,
-      });
-      run.artifacts.similarity_ndjson = paths.similarityPath;
+      try {
+        console.log(
+          `[phase1b] similarity probe: hashing ${similarityCapture.items.length} items (algorithm=dHash)`,
+        );
+        run.similarity_probe = await runSimilarityProbe({
+          items: similarityCapture.items,
+          accessToken,
+          outputPath: paths.similarityPath,
+        });
+        run.artifacts.similarity_ndjson = paths.similarityPath;
+        console.log(
+          `[phase1b] similarity probe: wrote ${paths.similarityPath}`,
+        );
+        if (run.similarity_probe.top_pairs?.length) {
+          const topPair = run.similarity_probe.top_pairs[0];
+          console.log(
+            `[phase1b] similarity probe: top match ${topPair.id_a} ${topPair.id_b} ${topPair.similarity_percent}%`,
+          );
+        }
+      } catch (error) {
+        run.similarity_probe = {
+          skipped: true,
+          error: error.message,
+        };
+      }
     }
 
     console.log("Run complete.");
@@ -424,6 +443,12 @@ async function runPicker() {
       console.log(
         `[diag] items file path=${paths.itemsPath} size_bytes=${stat.size}`,
       );
+    }
+    if (!run.similarity_probe) {
+      run.similarity_probe = {
+        skipped: true,
+        error: run.error || "run_failed",
+      };
     }
     run.completed_at = new Date().toISOString();
     await writeRunJson(paths.runJsonPath, run);

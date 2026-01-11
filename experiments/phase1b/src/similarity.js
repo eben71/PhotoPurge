@@ -1,13 +1,12 @@
 const fs = require("fs");
 const { once } = require("events");
 const { finished } = require("stream/promises");
-const jpeg = require("jpeg-js");
-const { PNG } = require("pngjs");
 const { fetchWithTimeout } = require("./http");
 
 const DEFAULT_TIMEOUT_MS = 30000;
 const TARGET_SIZE = { width: 9, height: 8 };
-const DOWNLOAD_SIZE_PARAM = "=w512-h512";
+const DOWNLOAD_SIZE_PARAM = "=w256-h256";
+const RANGE_HEADER = "bytes=0-65535";
 
 function buildContentUrl(item) {
   if (!item.baseUrl) {
@@ -16,12 +15,43 @@ function buildContentUrl(item) {
   return `${item.baseUrl}${DOWNLOAD_SIZE_PARAM}`;
 }
 
+let jpeg = null;
+let png = null;
+
+function getJpegDecoder() {
+  if (!jpeg) {
+    try {
+      jpeg = require("jpeg-js");
+    } catch (error) {
+      throw new Error("Missing dependency: jpeg-js (run pnpm install).");
+    }
+  }
+  return jpeg;
+}
+
+function getPngDecoder() {
+  if (!png) {
+    try {
+      png = require("pngjs");
+    } catch (error) {
+      throw new Error("Missing dependency: pngjs (run pnpm install).");
+    }
+  }
+  return png;
+}
+
 function decodeImage(buffer, mimeType) {
   if (mimeType && mimeType.includes("png")) {
-    const png = PNG.sync.read(buffer);
-    return { data: png.data, width: png.width, height: png.height };
+    const decoder = getPngDecoder();
+    const decoded = decoder.PNG.sync.read(buffer);
+    return {
+      data: decoded.data,
+      width: decoded.width,
+      height: decoded.height,
+    };
   }
-  const decoded = jpeg.decode(buffer, { useTArray: true });
+  const decoder = getJpegDecoder();
+  const decoded = decoder.decode(buffer, { useTArray: true });
   return { data: decoded.data, width: decoded.width, height: decoded.height };
 }
 
@@ -93,6 +123,7 @@ async function runSimilarityProbe({
   outputPath,
   nearMatchThreshold = 70,
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  writeAllPairsLimit = 50,
 }) {
   const results = [];
   const failures = [];
@@ -122,6 +153,7 @@ async function runSimilarityProbe({
           method: "GET",
           headers: {
             Authorization: `Bearer ${accessToken}`,
+            Range: RANGE_HEADER,
           },
         },
         timeoutMs,
@@ -162,10 +194,10 @@ async function runSimilarityProbe({
       const distance = hammingDistance(results[i].hash, results[j].hash);
       const similarity = Math.round(100 * (1 - distance / results[i].hash_bits));
       pairs.push({
-        a: results[i].id,
-        b: results[j].id,
-        distance,
-        similarity,
+        id_a: results[i].id,
+        id_b: results[j].id,
+        hamming_distance: distance,
+        similarity_percent: similarity,
       });
     }
   }
@@ -174,28 +206,38 @@ async function runSimilarityProbe({
   let stream = null;
   if (outputPath) {
     stream = fs.createWriteStream(outputPath, { flags: "w" });
-    for (const pair of pairs) {
+    const pairsToWrite =
+      results.length <= writeAllPairsLimit
+        ? pairs
+        : [...pairs]
+            .sort((a, b) => b.similarity_percent - a.similarity_percent)
+            .slice(0, 10);
+    for (const pair of pairsToWrite) {
       await writeNdjsonLine(stream, `${JSON.stringify(pair)}\n`);
     }
     stream.end();
     await finished(stream);
   }
 
-  const topPairs = [...pairs].sort((a, b) => b.similarity - a.similarity).slice(0, 10);
+  const topPairs = [...pairs]
+    .sort((a, b) => b.similarity_percent - a.similarity_percent)
+    .slice(0, 10);
 
   return {
-    algorithm: "dhash",
+    algorithm: "dHash",
     hash_bits: 64,
-    image_resize: "w512-h512->9x8",
+    image_size: "256x256",
+    items_hashed: results.length,
     near_match_threshold: nearMatchThreshold,
     pairs_evaluated: pairs.length,
     top_pairs: topPairs,
     failures,
-    timing_ms: {
-      download: downloadMs,
-      hashing: hashMs,
-      comparison: compareMs,
+    timing: {
+      download_ms: downloadMs,
+      hash_ms: hashMs,
+      compare_ms: compareMs,
     },
+    skipped: false,
   };
 }
 

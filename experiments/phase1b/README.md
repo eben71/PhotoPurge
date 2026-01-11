@@ -49,4 +49,7 @@ node experiments/phase1b/src/url-recheck.js --run-file experiments/phase1b/runs/
 - If the NDJSON self-check fails, the run aborts with an error. This indicates the
   items writer produced invalid output.
 - Metadata fields may be nested under `mediaFile` in the Picker API response.
+- URL probe notes: Picker `baseUrl` requests must include an `Authorization` header
+  and the correct suffix (`=d` for images, `=dv` for video). If either is missing,
+  403s are expected.
 - This code is intentionally minimal and should not be promoted to production.

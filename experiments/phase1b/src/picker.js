@@ -51,6 +51,19 @@ function getFirstValue(item, paths) {
   return undefined;
 }
 
+function redactBaseUrl(baseUrl) {
+  if (!baseUrl) {
+    return null;
+  }
+  try {
+    const parsed = new URL(baseUrl);
+    const previewPath = parsed.pathname.slice(0, 24);
+    return `${parsed.origin}${previewPath}`;
+  } catch (error) {
+    return `${baseUrl.slice(0, 24)}`;
+  }
+}
+
 async function writeNdjsonLine(stream, line) {
   await new Promise((resolve, reject) => {
     stream.write(line, (error) => {
@@ -103,13 +116,21 @@ function logPickedItemShape(item, run) {
   const baseUrl = getFirstValue(item, [["mediaFile", "baseUrl"], ["baseUrl"]]);
   const mimeType = getFirstValue(item, [["mediaFile", "mimeType"], ["mimeType"]]);
   const filename = getFirstValue(item, [["mediaFile", "filename"], ["filename"]]);
-  const creationTime = getFirstValue(item, [
-    ["mediaFile", "creationTime"],
+  const createTime = getFirstValue(item, [
+    ["createTime"],
     ["mediaFile", "createTime"],
     ["mediaMetadata", "creationTime"],
   ]);
-  const width = getFirstValue(item, [["mediaFile", "width"], ["mediaMetadata", "width"]]);
-  const height = getFirstValue(item, [["mediaFile", "height"], ["mediaMetadata", "height"]]);
+  const width = getFirstValue(item, [
+    ["mediaFile", "mediaFileMetadata", "width"],
+    ["mediaFile", "width"],
+    ["mediaMetadata", "width"],
+  ]);
+  const height = getFirstValue(item, [
+    ["mediaFile", "mediaFileMetadata", "height"],
+    ["mediaFile", "height"],
+    ["mediaMetadata", "height"],
+  ]);
 
   console.log(
     `[diag] picked_item_top_level_keys=${JSON.stringify(topLevelKeys)}`,
@@ -126,8 +147,8 @@ function logPickedItemShape(item, run) {
       item && item.mediaFile,
     )} hasBaseUrl=${hasValue(baseUrl)} hasMimeType=${hasValue(
       mimeType,
-    )} hasFilename=${hasValue(filename)} hasCreationTime=${hasValue(
-      creationTime,
+    )} hasFilename=${hasValue(filename)} hasCreateTime=${hasValue(
+      createTime,
     )} hasWidth=${hasValue(width)} hasHeight=${hasValue(height)}`,
   );
 }
@@ -317,9 +338,13 @@ async function runPicker() {
     run.metadata_completeness = finalizeMetadataStats(metadataStats);
 
     const validSample = sampleItems.filter((item) => item.baseUrl);
+    const redactedSample = validSample.map((item) => ({
+      ...item,
+      baseUrl: redactBaseUrl(item.baseUrl),
+    }));
     run.url_probe = {
-      sample_items: validSample,
-      ...(await probeUrls(validSample)),
+      sample_items: redactedSample,
+      ...(await probeUrls(validSample, { accessToken })),
     };
 
     console.log("Run complete.");

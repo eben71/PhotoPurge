@@ -4,7 +4,7 @@ function createMetadataStats() {
     field_counts: {
       id: 0,
       filename: 0,
-      creationTime: 0,
+      createTime: 0,
       mimeType: 0,
       width: 0,
       height: 0,
@@ -79,25 +79,33 @@ function recordItemMetadata(stats, item) {
     missing.push("mimeType");
   }
 
-  const creationTime = getFirstValue(item, [
-    ["mediaFile", "creationTime"],
+  const createTime = getFirstValue(item, [
+    ["createTime"],
     ["mediaFile", "createTime"],
     ["mediaMetadata", "creationTime"],
   ]);
-  if (hasValue(creationTime)) {
-    stats.field_counts.creationTime += 1;
+  if (hasValue(createTime)) {
+    stats.field_counts.createTime += 1;
   } else {
-    missing.push("creationTime");
+    missing.push("createTime");
   }
 
-  const width = getFirstValue(item, [["mediaFile", "width"], ["mediaMetadata", "width"]]);
+  const width = getFirstValue(item, [
+    ["mediaFile", "mediaFileMetadata", "width"],
+    ["mediaFile", "width"],
+    ["mediaMetadata", "width"],
+  ]);
   if (hasValue(width)) {
     stats.field_counts.width += 1;
   } else {
     missing.push("width");
   }
 
-  const height = getFirstValue(item, [["mediaFile", "height"], ["mediaMetadata", "height"]]);
+  const height = getFirstValue(item, [
+    ["mediaFile", "mediaFileMetadata", "height"],
+    ["mediaFile", "height"],
+    ["mediaMetadata", "height"],
+  ]);
   if (hasValue(height)) {
     stats.field_counts.height += 1;
   } else {

@@ -18,7 +18,17 @@ function normalizeContentType(value) {
   return value.split(";")[0].trim().toLowerCase();
 }
 
-async function probeUrls(sampleItems, timeoutMs = 20000) {
+function buildContentUrl(item) {
+  if (!item || !item.baseUrl) {
+    return null;
+  }
+  if (item.mimeType && item.mimeType.startsWith("video/")) {
+    return `${item.baseUrl}=dv`;
+  }
+  return `${item.baseUrl}=d`;
+}
+
+async function probeUrls(sampleItems, { accessToken, timeoutMs = 20000 } = {}) {
   const statusHistogram = {};
   const contentTypeHistogram = {};
   const results = [];
@@ -32,12 +42,20 @@ async function probeUrls(sampleItems, timeoutMs = 20000) {
     let error = null;
 
     try {
+      const contentUrl = buildContentUrl(item);
+      if (!contentUrl) {
+        throw new Error("Missing baseUrl for probe.");
+      }
+      if (!accessToken) {
+        throw new Error("Missing access token for probe.");
+      }
       const response = await fetchWithTimeout(
-        item.baseUrl,
+        contentUrl,
         {
           method: "GET",
           headers: {
-            Range: "bytes=0-0",
+            Authorization: `Bearer ${accessToken}`,
+            Range: "bytes=0-1023",
           },
         },
         timeoutMs,
@@ -45,6 +63,10 @@ async function probeUrls(sampleItems, timeoutMs = 20000) {
       status = response.status;
       ok = response.ok;
       contentType = normalizeContentType(response.headers.get("content-type"));
+      if (!response.ok) {
+        const responseText = await response.text();
+        error = responseText ? responseText.slice(0, 200) : "Non-OK response";
+      }
     } catch (err) {
       error = err.message;
     }

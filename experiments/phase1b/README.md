@@ -56,4 +56,6 @@ node experiments/phase1b/src/url-recheck.js --run-file experiments/phase1b/runs/
   for each image and reports pairwise “% similarity” as a heuristic score. This is
   **not** a proof of exact duplicates; exact matches still require SHA-256 over
   downloaded bytes.
+- After a successful similarity probe, the picker run auto-generates a static HTML
+  report under `experiments/phase1b/reports/<runId>/report/index.html`.
 - This code is intentionally minimal and should not be promoted to production.

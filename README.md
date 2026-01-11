@@ -77,7 +77,8 @@ Prereqs: Node.js 20+, pnpm (via Corepack), Python 3.12+, and `uv`.
 
 ## Reports (Phase 1b)
 
-Generate a static HTML report from Phase 1b artifacts (developer-facing only):
+Generate a static HTML report from Phase 1b artifacts (developer-facing only). This is also
+automatically generated after a successful Phase 1b similarity probe.
 
 ```bash
 pnpm report:phase1b -- \

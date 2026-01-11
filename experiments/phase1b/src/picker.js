@@ -3,6 +3,7 @@ const fsPromises = require("fs/promises");
 const path = require("path");
 const { once } = require("events");
 const { finished } = require("stream/promises");
+const { spawn } = require("child_process");
 const { parseArgs } = require("./args");
 const { getRequestedScopes, getValidAccessToken } = require("./auth");
 const { sleep } = require("./http");
@@ -26,6 +27,41 @@ const PAGE_SIZE = 100;
 const POLL_BASE_DELAY_MS = 1000;
 const POLL_MAX_DELAY_MS = 10000;
 const NDJSON_SELF_CHECK_LINES = 3;
+const REPORT_TOP_PAIRS = 100;
+
+async function runPhase1bReport({ runId, paths, similarityThreshold }) {
+  const reportScript = path.join(__dirname, "..", "..", "..", "tools", "phase1b-report", "cli.js");
+  const reportOutput = path.join(__dirname, "..", "reports");
+  const args = [
+    reportScript,
+    "--run",
+    paths.runJsonPath,
+    "--items",
+    paths.itemsPath,
+    "--similarity",
+    paths.similarityPath,
+    "--out",
+    reportOutput,
+    "--threshold",
+    String(similarityThreshold),
+    "--topPairs",
+    String(REPORT_TOP_PAIRS),
+    "--runId",
+    runId,
+  ];
+
+  return new Promise((resolve, reject) => {
+    const child = spawn("node", args, { stdio: "inherit" });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(`Report generation failed with exit code ${code}`));
+        return;
+      }
+      resolve();
+    });
+  });
+}
 
 function nextPollDelayMs(attempt) {
   return Math.min(POLL_MAX_DELAY_MS, POLL_BASE_DELAY_MS * 2 ** (attempt - 1));
@@ -421,6 +457,30 @@ async function runPicker() {
           skipped: true,
           error: error.message,
         };
+      }
+    }
+
+    if (run.similarity_probe && !run.similarity_probe.skipped) {
+      try {
+        console.log("[phase1b] report: generating static HTML");
+        await runPhase1bReport({
+          runId,
+          paths,
+          similarityThreshold: run.similarity_probe.near_match_threshold ?? 70,
+        });
+        const reportPath = path.join(
+          __dirname,
+          "..",
+          "reports",
+          runId,
+          "report",
+          "index.html",
+        );
+        run.artifacts.phase1b_report = reportPath;
+        console.log(`[phase1b] report: wrote ${reportPath}`);
+      } catch (error) {
+        run.report_error = error.message;
+        console.error(`[phase1b] report generation failed: ${error.message}`);
       }
     }
 

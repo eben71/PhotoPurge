@@ -73,3 +73,14 @@ Next steps:
 - Verify your app has created media in the library (upload via this app).
 - Try `--search-since YYYY-MM-DD` to confirm `mediaItems.search` returns items.
 - Inspect the `[diag]` summary to confirm whether the API returned items vs. writes were filtered.
+
+## Empty output / endless paging
+
+When the API returns consecutive pages with no `mediaItems`, the scan now aborts early with
+`termination_reason: "empty_pages_threshold"` in the run JSON. This protects against hundreds of
+requests with zero items.
+
+- Default `--empty-page-limit` is **5** for the `test` tier and **20** for all other tiers.
+- Override it when needed: `--empty-page-limit 50`.
+- If you typically see zero items, remember that the `appcreateddata` scope only returns items
+  created by this app; most users will have no results unless the app has uploaded media.

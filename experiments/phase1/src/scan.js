@@ -30,6 +30,7 @@ function parseArgs(argv) {
     outputPrefix: null,
     saveBaseline: false,
     searchSince: null,
+    emptyPageLimit: null,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -58,6 +59,10 @@ function parseArgs(argv) {
         options.searchSince = argv[i + 1];
         i += 1;
         break;
+      case "--empty-page-limit":
+        options.emptyPageLimit = Number(argv[i + 1]);
+        i += 1;
+        break;
       default:
         throw new Error(`Unknown argument: ${arg}`);
     }
@@ -78,6 +83,19 @@ function resolveMaxItems(tier, maxItems) {
     throw new Error(`Unknown tier: ${tier}`);
   }
   return limit;
+}
+
+function resolveEmptyPageLimit(tier, emptyPageLimit) {
+  if (Number.isFinite(emptyPageLimit)) {
+    if (emptyPageLimit <= 0) {
+      throw new Error("--empty-page-limit must be a positive integer");
+    }
+    return Math.floor(emptyPageLimit);
+  }
+  if (tier === "test") {
+    return 5;
+  }
+  return 20;
 }
 
 function toDateParts(date) {
@@ -155,9 +173,15 @@ async function run() {
 
   const options = parseArgs(process.argv.slice(2));
   const maxItems = resolveMaxItems(options.tier, options.maxItems);
+  const emptyPageLimit = resolveEmptyPageLimit(
+    options.tier,
+    options.emptyPageLimit,
+  );
   const runId = options.outputPrefix || createRunId();
 
   await ensureRunsDir();
+
+  console.log(`${DIAG_PREFIX} emptyPageLimit=${emptyPageLimit}`);
 
   const runFile = path.join(RUNS_DIR, `${runId}-run.json`);
   const itemsFile = path.join(RUNS_DIR, `${runId}-items.ndjson`);
@@ -181,10 +205,14 @@ async function run() {
   let totalItemsReceived = 0;
   let totalItemsWritten = 0;
   let totalPagesFetched = 0;
+  let consecutiveEmptyPages = 0;
+  let totalEmptyPages = 0;
   let nextPageToken;
   let loggedFirstItem = false;
   let lastItemsFileSize = 0;
   let runError;
+  let terminationReason = "completed";
+  let terminationDetails = {};
 
   const dateFilter = options.searchSince
     ? buildDateFilter(options.searchSince)
@@ -197,6 +225,10 @@ async function run() {
         console.log(
           `${DIAG_PREFIX} test tier page limit ${TEST_PAGE_LIMIT} reached; stopping early`,
         );
+        terminationReason = "test_page_limit";
+        terminationDetails = {
+          page_limit: TEST_PAGE_LIMIT,
+        };
         break;
       }
 
@@ -244,21 +276,33 @@ async function run() {
         loggedFirstItem = true;
       }
 
-      if (
-        response?.nextPageToken &&
-        response.nextPageToken === currentPageToken
-      ) {
-        throw new Error(
-          "Pagination token repeated — aborting to avoid infinite loop",
-        );
-      }
-
       const items = responseItems || [];
+      const itemsCount = responseItems ? responseItems.length : 0;
+      if (itemsCount === 0) {
+        consecutiveEmptyPages += 1;
+        totalEmptyPages += 1;
+      } else {
+        consecutiveEmptyPages = 0;
+      }
       totalItemsReceived += items.length;
       let itemsWrittenThisPage = 0;
       const filteredCounts = {
         maxItemsReached: 0,
       };
+
+      if (consecutiveEmptyPages >= emptyPageLimit) {
+        terminationReason = "empty_pages_threshold";
+        terminationDetails = {
+          empty_page_limit: emptyPageLimit,
+          consecutive_empty_pages: consecutiveEmptyPages,
+          total_requests_so_far: metrics.total_requests,
+          pages_fetched_so_far: totalPagesFetched,
+        };
+        console.warn(
+          `[warn] Aborting scan: empty mediaItems for ${consecutiveEmptyPages} consecutive pages (limit=${emptyPageLimit}).`,
+        );
+        break;
+      }
 
       for (let i = 0; i < items.length; i += 1) {
         const item = items[i];
@@ -313,8 +357,39 @@ async function run() {
         `${DIAG_PREFIX} wrote ${itemsWrittenThisPage} items this page (total ${totalItemsWritten}) fileSize=${lastItemsFileSize} bytes`,
       );
 
+      if (
+        response?.nextPageToken &&
+        response.nextPageToken === currentPageToken
+      ) {
+        const tokenPrefix = (currentPageToken || "").slice(0, 12);
+        terminationReason = "repeated_page_token";
+        terminationDetails = {
+          repeated_page_token_detected: true,
+          repeated_page_token_prefix: tokenPrefix,
+          pages_fetched_so_far: totalPagesFetched,
+          total_requests_so_far: metrics.total_requests,
+        };
+        console.warn(
+          `[warn] Aborting scan: repeated nextPageToken detected (prefix=${tokenPrefix ||
+            "none"}).`,
+        );
+        break;
+      }
+
       nextPageToken = response.nextPageToken;
-      if (!nextPageToken || totalItemsWritten >= maxItems) {
+      if (totalItemsWritten >= maxItems) {
+        terminationReason = "max_items_reached";
+        terminationDetails = {
+          max_items: maxItems,
+          total_items_written: totalItemsWritten,
+        };
+        break;
+      }
+      if (!nextPageToken) {
+        terminationReason = "no_next_page_token";
+        terminationDetails = {
+          pages_fetched: totalPagesFetched,
+        };
         break;
       }
     }
@@ -361,10 +436,16 @@ async function run() {
     mode: dateFilter ? "search" : "list",
     tier: options.tier,
     max_items: maxItems,
+    empty_page_limit: emptyPageLimit,
     started_at: startedAt.toISOString(),
     completed_at: completedAt.toISOString(),
     wall_clock_time_seconds: durationSeconds,
     total_items_seen: totalItemsReceived,
+    total_mediaItems_received: totalItemsReceived,
+    pages_fetched: totalPagesFetched,
+    total_empty_pages: totalEmptyPages,
+    termination_reason: terminationReason,
+    termination_details: terminationDetails,
     avg_items_per_request: totalItemsReceived
       ? Math.round((totalItemsReceived / metrics.total_requests) * 100) / 100
       : 0,

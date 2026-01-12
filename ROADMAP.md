@@ -139,9 +139,9 @@ Finalize thresholds/models in DECISIONS.md after Phase 1b.
 > Accuracy perfection is explicitly **not** a goal for Phase 2.
 
 ### Phase 2.0: Documentation & Guardrails
-- [ ] Align all docs to Phase 2 validation MVP scope
-- [ ] Record locked decisions + deferred decisions (with TODOs for Phase 3)
-- [ ] Establish cost, trust, and scope guardrails
+- ✅ Align all docs to Phase 2 validation MVP scope
+- ✅ Record locked decisions + deferred decisions (with TODOs for Phase 3)
+- ✅ Establish cost, trust, and scope guardrails
 
 ### Phase 2.1: Core Engine
 - [ ] Picker API session + selected-item ingestion only

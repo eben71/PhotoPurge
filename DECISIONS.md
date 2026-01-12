@@ -9,3 +9,21 @@
 | 2026-01-05 | Run feasibility probes only from `experiments/phase1/`. | Keeps spike code disposable and scoped. | Approved |
 | 2026-01-06 | Library API cannot enumerate user libraries; only app-created items accessible. Whole-library scan via Library API is not viable. | API access is constrained to app-created content, blocking full-library enumeration. | Approved |
 | 2026-01-07 | Run Phase 1b feasibility probe using the Google Photos Picker API session flow. | Validate selection scale, metadata completeness, and URL behavior with user-picked media. | Approved |
+
+## Phase 2 Locked Decisions (Validation MVP)
+
+| Date | Decision | Rationale | Status |
+| --- | --- | --- | --- |
+| 2026-01-12 | No library-wide scanning; Picker API only. | Feasibility and trust constraints require user-selected ingestion. | Locked |
+| 2026-01-12 | No automatic deletion in MVP. | Trust-first validation requires review-only output. | Locked |
+| 2026-01-12 | No embeddings in MVP. | Cost + complexity risk; not required for validation. | Locked |
+| 2026-01-12 | Tiered similarity pipeline: metadata → perceptual hash → optional byte hash. | Balances cost control with explainable confidence. | Locked |
+| 2026-01-12 | Environment-based cost guardrails (per-run item caps). | Prevents unexpected usage spikes during validation. | Locked |
+
+## Deferred Decisions (TODO: Phase 3)
+
+| Decision | Rationale | Status |
+| --- | --- | --- |
+| Pricing model | Requires post-validation signal and usage data. | TODO (Phase 3) |
+| Free tier enforcement | Depends on pricing and cost envelope decisions. | TODO (Phase 3) |
+| Long-term hosting approach | To be decided after validation MVP outcome. | TODO (Phase 3) |

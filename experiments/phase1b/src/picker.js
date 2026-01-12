@@ -390,6 +390,7 @@ async function runPicker() {
     });
 
     console.log("[phase1b] list selected media items");
+    await fsPromises.mkdir(paths.runsDir, { recursive: true });
     itemsStream = fs.createWriteStream(paths.itemsPath, { flags: "w" });
     run.listing.started_at = new Date().toISOString();
     const listStart = Date.now();

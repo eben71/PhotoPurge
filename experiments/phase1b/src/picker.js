@@ -207,6 +207,28 @@ function logPickedItemShape(item, run) {
   );
 }
 
+function logRunSummary(run) {
+  const downloadMetrics = run.similarity_probe?.download_metrics;
+  const timing = run.similarity_probe?.timing;
+  const downloaded = downloadMetrics?.images_downloaded ?? 0;
+  const failed = downloadMetrics?.images_failed ?? 0;
+  const bytesTotal = downloadMetrics?.estimated_bytes_downloaded ?? 0;
+  const downloadMs = timing?.download_ms ?? downloadMetrics?.total_download_ms ?? 0;
+  const hashMs = timing?.hash_ms ?? 0;
+  const topSimilarity =
+    run.similarity_probe?.top_pairs && run.similarity_probe.top_pairs.length
+      ? run.similarity_probe.top_pairs[0].similarity_percent
+      : null;
+  const topSimilarityLabel =
+    topSimilarity === null || topSimilarity === undefined
+      ? "n/a"
+      : `${topSimilarity}%`;
+
+  console.log(
+    `[phase1b] summary: downloads ${downloaded} ok / ${failed} failed, bytes≈${bytesTotal}, download_ms=${downloadMs}, hash_ms=${hashMs}, top_similarity=${topSimilarityLabel}`,
+  );
+}
+
 async function pollForCompletion({ accessToken, sessionId, run, timeoutMs }) {
   const startedAt = Date.now();
   let attempt = 0;
@@ -474,6 +496,8 @@ async function runPicker() {
     if (run.similarity_probe && !run.similarity_probe.skipped) {
       run.report_requested = true;
     }
+
+    logRunSummary(run);
 
     console.log("Run complete.");
     console.log(`Run JSON: ${paths.runJsonPath}`);

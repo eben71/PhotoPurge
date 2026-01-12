@@ -7,6 +7,7 @@ const DEFAULT_TIMEOUT_MS = 30000;
 const TARGET_SIZE = { width: 9, height: 8 };
 const DOWNLOAD_SIZE_PARAM = "=w256-h256";
 const RANGE_HEADER = "bytes=0-65535";
+const DOWNLOAD_CONCURRENCY = 6;
 
 function buildContentUrl(item) {
   if (!item.baseUrl) {
@@ -102,6 +103,45 @@ function hammingDistance(a, b) {
   return count;
 }
 
+function createLimiter(limit) {
+  let active = 0;
+  const queue = [];
+
+  const next = () => {
+    if (active >= limit || queue.length === 0) {
+      return;
+    }
+    const { task, resolve, reject } = queue.shift();
+    active += 1;
+    task()
+      .then(resolve)
+      .catch(reject)
+      .finally(() => {
+        active -= 1;
+        next();
+      });
+  };
+
+  return (task) =>
+    new Promise((resolve, reject) => {
+      queue.push({ task, resolve, reject });
+      next();
+    });
+}
+
+function estimateBytes({ response, buffer }) {
+  if (response) {
+    const contentLength = response.headers.get("content-length");
+    if (contentLength) {
+      const parsed = Number(contentLength);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+  return buffer ? buffer.length : 0;
+}
+
 async function writeNdjsonLine(stream, line) {
   await new Promise((resolve, reject) => {
     stream.write(line, (error) => {
@@ -130,62 +170,79 @@ async function runSimilarityProbe({
   let downloadMs = 0;
   let hashMs = 0;
   let compareMs = 0;
+  let imagesAttempted = 0;
+  let imagesDownloaded = 0;
+  let estimatedBytesDownloaded = 0;
 
-  for (const item of items) {
-    if (!item.mimeType || !item.mimeType.startsWith("image/")) {
-      failures.push({
-        id: item.id,
-        error: "unsupported_mime_type",
-      });
-      continue;
-    }
-    const url = buildContentUrl(item);
-    if (!url) {
-      failures.push({ id: item.id, error: "missing_base_url" });
-      continue;
-    }
-
-    try {
-      const downloadStart = Date.now();
-      const response = await fetchWithTimeout(
-        url,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Range: RANGE_HEADER,
-          },
-        },
-        timeoutMs,
-      );
-      downloadMs += Date.now() - downloadStart;
-
-      if (!response.ok) {
+  const limiter = createLimiter(DOWNLOAD_CONCURRENCY);
+  const tasks = items.map((item) =>
+    limiter(async () => {
+      if (!item.mimeType || !item.mimeType.startsWith("image/")) {
         failures.push({
           id: item.id,
-          error: `download_failed_${response.status}`,
+          error: "unsupported_mime_type",
         });
-        continue;
+        return;
+      }
+      const url = buildContentUrl(item);
+      if (!url) {
+        failures.push({ id: item.id, error: "missing_base_url" });
+        return;
       }
 
-      const buffer = Buffer.from(await response.arrayBuffer());
-      const hashStart = Date.now();
-      const { data, width, height } = decodeImage(buffer, item.mimeType);
-      const { hash, hex, bits } = computeDhash(data, width, height);
-      hashMs += Date.now() - hashStart;
+      imagesAttempted += 1;
+      try {
+        const downloadStart = Date.now();
+        const response = await fetchWithTimeout(
+          url,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Range: RANGE_HEADER,
+            },
+          },
+          timeoutMs,
+        );
 
-      results.push({
-        id: item.id,
-        hash,
-        hash_hex: hex,
-        hash_bits: bits,
-        width: TARGET_SIZE.width,
-        height: TARGET_SIZE.height,
-      });
-    } catch (error) {
-      failures.push({ id: item.id, error: error.message });
-    }
-  }
+        const buffer = Buffer.from(await response.arrayBuffer());
+        downloadMs += Date.now() - downloadStart;
+        estimatedBytesDownloaded += estimateBytes({ response, buffer });
+
+        if (!response.ok) {
+          failures.push({
+            id: item.id,
+            error: `download_failed_${response.status}`,
+          });
+          return;
+        }
+
+        const hashStart = Date.now();
+        const { data, width, height } = decodeImage(buffer, item.mimeType);
+        const { hash, hex, bits } = computeDhash(data, width, height);
+        hashMs += Date.now() - hashStart;
+        imagesDownloaded += 1;
+
+        results.push({
+          id: item.id,
+          hash,
+          hash_hex: hex,
+          hash_bits: bits,
+          width: TARGET_SIZE.width,
+          height: TARGET_SIZE.height,
+        });
+      } catch (error) {
+        failures.push({ id: item.id, error: error.message });
+      }
+    }),
+  );
+
+  await Promise.all(tasks);
+
+  const imagesFailed = imagesAttempted - imagesDownloaded;
+  console.log(
+    `[phase1b] image downloads complete: success=${imagesDownloaded} failure=${imagesFailed}`,
+  );
 
   const pairs = [];
   const compareStart = Date.now();
@@ -222,6 +279,12 @@ async function runSimilarityProbe({
   const topPairs = [...pairs]
     .sort((a, b) => b.similarity_percent - a.similarity_percent)
     .slice(0, 10);
+  const avgDownloadMs =
+    imagesAttempted > 0 ? Number((downloadMs / imagesAttempted).toFixed(2)) : 0;
+  const bytesPerImageAvg =
+    imagesAttempted > 0
+      ? Math.round(estimatedBytesDownloaded / imagesAttempted)
+      : 0;
 
   return {
     algorithm: "dHash",
@@ -232,6 +295,24 @@ async function runSimilarityProbe({
     pairs_evaluated: pairs.length,
     top_pairs: topPairs,
     failures,
+    download_metrics: {
+      images_attempted: imagesAttempted,
+      images_downloaded: imagesDownloaded,
+      images_failed: imagesFailed,
+      total_download_ms: downloadMs,
+      avg_download_ms: avgDownloadMs,
+      estimated_bytes_downloaded: estimatedBytesDownloaded,
+    },
+    compute_metrics: {
+      hash_ms: hashMs,
+      compare_ms: compareMs,
+      total_similarity_ms: hashMs + compareMs,
+    },
+    cost_estimates: {
+      bytes_per_image_avg: bytesPerImageAvg,
+      bytes_total: estimatedBytesDownloaded,
+      notes: "Excludes original downloads; thumbnails only",
+    },
     timing: {
       download_ms: downloadMs,
       hash_ms: hashMs,

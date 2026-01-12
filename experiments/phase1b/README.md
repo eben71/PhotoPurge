@@ -43,6 +43,18 @@ set -a; source .env; set +a; node experiments/phase1b/src/picker.js --tier large
 node experiments/phase1b/src/url-recheck.js --run-file experiments/phase1b/runs/<run>-run.json --token-id default --label T+15
 ```
 
+## Performance & Cost Signals
+
+Phase 1b writes lightweight download + compute metrics into `run.json` to help
+estimate the biggest cost drivers:
+
+- Thumbnails are requested (`=w256-h256`) instead of originals to keep the probe
+  fast, cheap, and privacy-respecting while still producing perceptual hashes.
+- Download time and bytes dominate cost right now because each candidate still
+  requires a thumbnail fetch and decode.
+- Future phases will narrow candidates before download (e.g. stronger metadata
+  filters + server-side grouping) to reduce total bytes and latency.
+
 ## Notes
 
 - Run artifacts are written to `experiments/phase1b/runs/` and are **gitignored**.

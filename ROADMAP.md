@@ -133,35 +133,60 @@ Finalize thresholds/models in DECISIONS.md after Phase 1b.
 
 ---
 
-## 2 — Phase 2: Product Decisions & Guardrails (DECISION GATE)
+## 2 — Phase 2: Validation MVP (LOCKED SCOPE)
 
-> **Goal:** Lock decisions that affect all later phases (without over-specifying implementation).
+> **Goal:** Deliver a validation MVP that proves trust, predictability, and cost control.
+> Accuracy perfection is explicitly **not** a goal for Phase 2.
 
-### Mandatory Decisions (Recorded in DECISIONS.md)
-- [ ] **Processing location:** Server-side for MVP (Google Photos source)
-- [ ] **Duplicate strategy (MVP):**
-  - [ ] Exact duplicates (content hash)
-  - [ ] Near-duplicates (perceptual hash)
-- [ ] **Deletion strategy:** Export URLs only (manual deletion in Google Photos)
-- [ ] **User experience:** Web UI only
-- [ ] **MVP scale target:** Validate at 10k–50k photos
-- [ ] **Definition of “done” for MVP:** Measurable success criteria (see Phase 9)
+### Phase 2.0: Documentation & Guardrails
+- [ ] Align all docs to Phase 2 validation MVP scope
+- [ ] Record locked decisions + deferred decisions (with TODOs for Phase 3)
+- [ ] Establish cost, trust, and scope guardrails
 
-### Guardrails (LLM-Resistance)
-- [ ] Avoid client-side SDK / mobile assumptions (Google Photos is cloud)
-- [ ] Avoid premature service splitting (“microservices”) in MVP
-- [ ] Prefer linear, debuggable workflows
-- [ ] Prefer conservative matching over clever matching
+### Phase 2.1: Core Engine
+- [ ] Picker API session + selected-item ingestion only
+- [ ] Tiered similarity pipeline (metadata → perceptual hash → optional byte hash)
+- [ ] Configurable max photos per run (cost guardrail)
+- [ ] Deterministic, repeatable scan results
+
+### Phase 2.2: Functional UX
+- [ ] Single-session review flow (no background jobs)
+- [ ] Grouping + review-only UI (no deletion)
+- [ ] Clear match confidence labels + explanations
+
+### Phase 2.3: Style & Trust Layer
+- [ ] Trust-first copy (predictability over hype)
+- [ ] Clear scope boundaries visible in UI
+- [ ] Transparency on limits and known failure modes
+
+### Phase 2.4: Validation & Stress Testing
+- [ ] Validate with real user-selected sets (1k–5k)
+- [ ] Stress test cost + time per run
+- [ ] Capture feedback on confidence labels + review flow
+
+### Phase 2 Guardrails (Cost, Trust, Scope)
+- **Cost:** enforce per-run item caps; no library-wide scanning.
+- **Trust:** review-only output; no automated deletion.
+- **Scope:** single-session only; no background sync, no accounts history.
+
+### Out of Scope for Phase 2
+- Library-wide scanning (Library API enumeration)
+- Automatic deletion or bulk destructive actions
+- Embeddings/semantic similarity in the MVP
+- Multi-session accounts, background sync, or persistent indexing
+- Pricing plans, billing systems, or free-tier enforcement
+- Hosted production deployment guarantees
 
 **Exit Criteria**
-- Decisions above are written down with short rationale
-- Team can answer “what’s in scope / out of scope” in one minute
+- Phase 2 scope is clearly documented and enforced
+- Trust and predictability validated with real users
+- Cost guardrails respected in realistic runs
 
 ---
 
-## 3 — Phase 3: Google Photos Integration & Ingestion (MVP Backbone)
+## 3 — Phase 3: Google Photos Integration & Ingestion (POST-VALIDATION)
 
-> **Goal:** Reliably ingest and index a user’s Google Photos library.
+> **Goal:** Expand beyond validation MVP if Phase 2 signals are positive.
 
 ### Authentication & Identity
 - [ ] Google sign-in (OAuth)
@@ -198,148 +223,3 @@ Finalize thresholds/models in DECISIONS.md after Phase 1b.
 ### Indexing Rules
 - [ ] Idempotent ingestion
 - [ ] Stable internal IDs
-- [ ] Hashes stored once, reused across scans
-- [ ] Track processing version (so detection changes can be re-run cleanly)
-
-**Exit Criteria**
-- Schema supports all queries needed by the UI
-- Re-scans do not duplicate or corrupt prior results
-
----
-
-## 5 — Phase 5: Exact Duplicate Detection (Trust Baseline)
-
-> **Goal:** 100% precision for identical photos.
-
-- [ ] Compute content hash (server-side)
-- [ ] Group identical hashes into clusters
-- [ ] Choose default “keep” candidate (simple heuristic)
-- [ ] Confidence = 1.0
-
-**Exit Criteria**
-- Zero false positives on test sets
-- Performs acceptably for 10k+ photos
-
----
-
-## 6 — Phase 6: Near-Duplicate Detection (Conservative)
-
-> **Goal:** Catch obvious variants without breaking trust.
-
-- [ ] Perceptual hash generation (server-side)
-- [ ] Conservative similarity threshold
-- [ ] Explicit confidence scoring
-- [ ] Store “why matched” explanation inputs (distance/score)
-
-### Principle
-> **False negatives are acceptable. False positives are not.**
-
-**Exit Criteria**
-- <5% false positives on curated test set
-- Runtime remains acceptable at 10k–50k scale
-
----
-
-## 7 — Phase 7: Review Experience (Trust-First UI)
-
-> **Goal:** Users clearly understand *why* photos are grouped and can decide what to delete.
-
-- [ ] Grouped duplicate clusters
-- [ ] Side-by-side comparison
-- [ ] Confidence indicators
-- [ ] Manual keep/delete selection per item
-- [ ] Filters (exact vs near, confidence threshold)
-- [ ] Default = no action
-- [ ] Clear “what happens next” messaging (manual deletion only)
-
-**Exit Criteria**
-- Users can complete a review session without confusion
-- Users can confidently explain why items were grouped
-
----
-
-## 8 — Phase 8: Actionable Export (NO DELETION)
-
-> **Goal:** Enable safe, manual cleanup by the user.
-
-- [ ] Export CSV with Google Photos links
-- [ ] Export JSON (future automation / portability)
-- [ ] Clear step-by-step deletion instructions (Google Photos UI)
-- [ ] Export includes “keep vs delete” selections and confidence
-
-**Exit Criteria**
-- Export is usable without additional tools
-- Users can delete manually without ambiguity
-
----
-
-## 9 — Phase 9: Testing, CI/CD Quality Gates & MVP Validation
-
-> **Goal:** Prove correctness, performance, and trust — and decide if the project should continue.
-
-### Test Coverage (Explicit)
-- [ ] Unit tests (hashing, similarity scoring, grouping)
-- [ ] Integration tests (end-to-end scan job with mocked Google Photos responses)
-- [ ] Front-end tests (login flow, scan trigger, review UI, export)
-
-### Test Data Requirements
-- [ ] Include Google Photos-specific cases:
-  - [ ] Different versions of “same” photo (compressed variants)
-  - [ ] Same image re-uploaded
-  - [ ] Burst / near-identical series
-  - [ ] Screenshots vs camera photos (should not falsely match)
-- [ ] Small set (100), medium set (1k), large validation (10k–50k)
-
-### CI/CD Quality Gates (Must Pass)
-- [ ] Lint + format checks required
-- [ ] Unit tests required
-- [ ] Integration tests required
-- [ ] Front-end tests required
-- [ ] Dependency vulnerability scan (fail on high severity)
-- [ ] Targeted coverage threshold on core logic (avoid vanity %)
-
-### MVP Success Criteria (Measurable)
-- [ ] Scan 50k photos in <10 minutes (target; refine from Phase 1 measurements)
-- [ ] Exact duplicates: 100% precision on test sets
-- [ ] Near-duplicates: <5% false positives on curated set
-- [ ] User reviews 100 clusters in <15 minutes
-- [ ] Zero accidental deletions in testing (since app does not delete)
-
-**Exit Criteria**
-- CI is stable and blocks regressions
-- MVP criteria are met (or decision is made to stop/pivot)
-
----
-
-## 10 — Phase 10: MVP Release & Decision
-
-> **Goal:** Release to a small group, learn fast, decide next steps.
-
-- [ ] Limited user release (small cohort)
-- [ ] Collect feedback (UX confusion, trust, false positives, scan time)
-- [ ] Decide: continue, pivot, or stop
-- [ ] If continuing: prioritise the next bottleneck revealed (often API limits or UX)
-
----
-
-## Post-MVP (Explicitly Deferred)
-
-- Client-side processing (optimisation only)
-- Screen-scraping fallback (contingency if API limits are too strict)
-- Automated deletion
-- Mobile apps
-- ML embeddings
-- Infrastructure optimisation / service splitting
-
----
-
-## LLM Guardrail (Do Not Drift)
-
-If a suggestion includes:
-- “Client SDK”
-- “Microservices”
-- “On-device ML”
-- “Automatic deletion”
-- “Enterprise features”
-
-👉 **It is post-MVP by default unless it directly improves Phase 1 feasibility validation.**

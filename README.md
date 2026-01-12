@@ -1,6 +1,25 @@
 # PhotoPrune
 
-PhotoPrune helps you safely **find and remove duplicate / near-duplicate photos** by scanning libraries, grouping matches, and guiding a careful review workflow before deletion. Phase 0 delivers the disciplined skeleton only—no product logic is implemented yet.
+## Project Summary
+
+**What PhotoPrune does:** PhotoPrune is a validation MVP that helps users **review potential duplicate and near-duplicate photos** selected via the Google Photos Picker. It groups likely matches, labels confidence, and guides a cautious, review-only workflow.
+
+**What PhotoPrune does NOT do (Phase 2):** It does **not** scan full libraries, **does not** delete photos automatically, and **does not** use embeddings or semantic similarity in the MVP.
+
+## Phase 2 MVP Constraints (Locked)
+
+- **Picker API only** (user-selected items; no library-wide scan).
+- **Configurable max photos per run** (cost guardrail).
+- **Review-only** results (no deletion or bulk destructive actions).
+- **Single-session usage** (no background sync, no multi-session accounts).
+
+> Phase 2 is a **validation MVP**. Accuracy perfection is **not** the goal; trust and predictability are.
+
+## Trust & Safety
+
+- Review-first workflow; users must make the final decision.
+- Clear confidence labels and known limitations are shown to users.
+- Cost guardrails prevent unexpected usage spikes.
 
 ## Tech stack (current)
 
@@ -47,27 +66,14 @@ Prereqs: Node.js 20+, pnpm (via Corepack), Python 3.12+, and `uv`.
    ```
 4. If you regenerate lockfiles (e.g., after dependency changes), commit the updated `pnpm-lock.yaml` and requirement locks so CI stays reproducible.
 
-## MVP scope
+## Out of Scope (Phase 2)
 
-- Auth (email/password or OAuth) + user isolation
-- Upload photos (direct-to-object-store via presigned URLs)
-- Scan jobs (async) to compute:
-  - exact hashes + perceptual hashes (pHash)
-  - basic metadata extraction (dimensions, size, timestamps)
-- Duplicate grouping + review UI:
-  - compare items, choose “keep” vs “remove”
-  - safe delete workflow (soft-delete / trash first)
-- Job status + progress (polling)
-- Basic admin tooling (health endpoints, job retry)
-
-## Out of scope (initially)
-
-- Embedding similarity search (CLIP/OpenCLIP) and semantic clustering
-- Realtime updates via websockets (Socket.io)
-- Product analytics (PostHog) and error tracking (Sentry)
-- Payments / subscriptions
-- Mobile apps
-- Multi-region, multi-cloud portability work
+- Library-wide scanning (Library API enumeration)
+- Automatic deletion or bulk destructive actions
+- Embedding/semantic similarity in the MVP
+- Multi-session accounts, background sync, or persistent indexing
+- Pricing plans, billing systems, or free-tier enforcement
+- Hosted production deployment guarantees
 
 ## Notes
 

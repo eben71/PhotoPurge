@@ -3,9 +3,7 @@ from __future__ import annotations
 import hashlib
 import math
 from io import BytesIO
-from typing import NamedTuple
-
-from PIL import Image, ImageOps
+from typing import TYPE_CHECKING, NamedTuple
 
 from app.engine.downloads import DownloadManager
 from app.engine.models import PhotoItem
@@ -14,6 +12,10 @@ from app.engine.models import PhotoItem
 class PerceptualHashes(NamedTuple):
     dhash: int
     phash: int
+
+
+if TYPE_CHECKING:
+    from PIL import Image as PilImage
 
 
 class HashingService:
@@ -45,7 +47,7 @@ class HashingService:
 
 
 def compute_dhash(image_bytes: bytes, *, size: int = 8) -> int:
-    image = _load_image(image_bytes).resize((size + 1, size), Image.Resampling.LANCZOS)
+    image = _load_image(image_bytes).resize((size + 1, size), resample=_resample_lanczos())
     pixels = list(image.getdata())
     result = 0
     for row in range(size):
@@ -57,7 +59,7 @@ def compute_dhash(image_bytes: bytes, *, size: int = 8) -> int:
 
 
 def compute_phash(image_bytes: bytes, *, size: int = 32, hash_size: int = 8) -> int:
-    image = _load_image(image_bytes).resize((size, size), Image.Resampling.LANCZOS)
+    image = _load_image(image_bytes).resize((size, size), resample=_resample_lanczos())
     pixels = list(image.getdata())
     matrix = [pixels[i * size : (i + 1) * size] for i in range(size)]
     dct = _dct_2d(matrix)
@@ -74,11 +76,19 @@ def hamming_distance(left: int, right: int) -> int:
     return (left ^ right).bit_count()
 
 
-def _load_image(image_bytes: bytes) -> Image.Image:
+def _load_image(image_bytes: bytes) -> "PilImage.Image":
+    from PIL import Image, ImageOps
+
     with Image.open(BytesIO(image_bytes)) as img:
         transposed = ImageOps.exif_transpose(img)
         grayscale = transposed.convert("L")
         return grayscale.copy()
+
+
+def _resample_lanczos() -> int:
+    from PIL import Image
+
+    return Image.Resampling.LANCZOS
 
 
 def _dct_2d(matrix: list[list[int]]) -> list[list[float]]:

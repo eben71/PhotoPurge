@@ -47,8 +47,7 @@ def test_run_scan_tracks_counts_and_costs(monkeypatch):
     costs = result.cost_estimate
     expected_download = 2 * Settings().scan_cost_per_download
     expected_hash = (
-        2 * Settings().scan_cost_per_byte_hash
-        + 2 * Settings().scan_cost_per_perceptual_hash
+        2 * Settings().scan_cost_per_byte_hash + 2 * Settings().scan_cost_per_perceptual_hash
     )
     expected_comparison = 1 * Settings().scan_cost_per_comparison
     expected_total = expected_download + expected_hash + expected_comparison

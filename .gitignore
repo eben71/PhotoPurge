@@ -6,6 +6,7 @@ node_modules
 .next
 *.tsbuildinfo
 coverage
+# Avoid committing Python coverage artifacts (e.g., apps/worker/.coverage) to prevent merge conflicts.
 .coverage
 coverage.xml
 .vitest

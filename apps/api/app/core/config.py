@@ -18,6 +18,17 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://postgres:postgres@localhost:5432/photoprune"
     redis_url: str = "redis://localhost:6379/0"
     cors_origins: list[str] = ["http://localhost:3000"]
+    environment: str = "local"
+    scan_max_photos: int = 250
+    scan_consent_threshold: int = 200
+    scan_dhash_threshold_very: int = 5
+    scan_dhash_threshold_possible: int = 10
+    scan_phash_threshold_very: int = 6
+    scan_phash_threshold_possible: int = 12
+    scan_cost_per_download: float = 0.0002
+    scan_cost_per_byte_hash: float = 0.00005
+    scan_cost_per_perceptual_hash: float = 0.00008
+    scan_cost_per_comparison: float = 0.00001
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -25,6 +36,10 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return list(value)
+
+    @property
+    def enforce_scan_limits(self) -> bool:
+        return self.environment.lower() == "prod"
 
     @classmethod
     def settings_customise_sources(  # type: ignore[override]

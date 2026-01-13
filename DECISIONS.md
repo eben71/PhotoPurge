@@ -20,6 +20,13 @@
 | 2026-01-12 | Tiered similarity pipeline: metadata → perceptual hash → optional byte hash. | Balances cost control with explainable confidence. | Locked |
 | 2026-01-12 | Environment-based cost guardrails (per-run item caps). | Prevents unexpected usage spikes during validation. | Locked |
 
+## Phase 2.1 Implementation Decisions (Core Engine)
+
+| Date | Decision | Rationale | Status |
+| --- | --- | --- | --- |
+| 2026-01-15 | Implement the Phase 2.1 core engine in the FastAPI service using Python. | Keeps scan execution server-side for cost control and aligns with the existing backend stack. | Approved |
+| 2026-01-15 | Use Pillow for deterministic image decoding and dHash/pHash generation. | Provides stable, maintained image handling for perceptual hashing without bespoke codecs. | Approved |
+
 ## Deferred Decisions (TODO: Phase 3)
 
 | Decision | Rationale | Status |

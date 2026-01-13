@@ -144,10 +144,10 @@ Finalize thresholds/models in DECISIONS.md after Phase 1b.
 - ✅ Establish cost, trust, and scope guardrails
 
 ### Phase 2.1: Core Engine
-- [ ] Picker API session + selected-item ingestion only
-- [ ] Tiered similarity pipeline (metadata → perceptual hash → optional byte hash)
-- [ ] Configurable max photos per run (cost guardrail)
-- [ ] Deterministic, repeatable scan results
+- ✅ Picker API session + selected-item ingestion only
+- ✅ Tiered similarity pipeline (metadata → perceptual hash → optional byte hash)
+- ✅ Configurable max photos per run (cost guardrail)
+- ✅ Deterministic, repeatable scan results
 
 ### Phase 2.2: Functional UX
 - [ ] Single-session review flow (no background jobs)

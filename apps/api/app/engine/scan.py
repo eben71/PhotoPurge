@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from collections import defaultdict
 from collections.abc import Iterable
 from uuid import uuid4
 
@@ -46,8 +47,22 @@ def run_scan(
     groups_exact = group_exact_duplicates(photo_items, byte_hashes)
     timings["exact_grouping_ms"] = _elapsed_ms(start)
 
+    exact_hash_counts: dict[str, int] = defaultdict(int)
+    for digest in byte_hashes.values():
+        exact_hash_counts[digest] += 1
+    exact_duplicate_ids = {
+        item_id
+        for item_id, digest in byte_hashes.items()
+        if exact_hash_counts[digest] >= 2
+    }
+
     hashable_candidate_sets = [
-        [item for item in group if item.download_url is not None] for group in candidate_sets
+        [
+            item
+            for item in group
+            if item.download_url is not None and item.id not in exact_duplicate_ids
+        ]
+        for group in candidate_sets
     ]
     hashable_candidate_sets = [group for group in hashable_candidate_sets if len(group) >= 2]
 

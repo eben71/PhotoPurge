@@ -1,4 +1,4 @@
-name: photopurge-codeql
+name: photoprune-codeql
 paths:
   - apps/api
   - apps/worker

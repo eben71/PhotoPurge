@@ -51,9 +51,7 @@ def run_scan(
     for digest in byte_hashes.values():
         exact_hash_counts[digest] += 1
     exact_duplicate_ids = {
-        item_id
-        for item_id, digest in byte_hashes.items()
-        if exact_hash_counts[digest] >= 2
+        item_id for item_id, digest in byte_hashes.items() if exact_hash_counts[digest] >= 2
     }
 
     hashable_candidate_sets = [

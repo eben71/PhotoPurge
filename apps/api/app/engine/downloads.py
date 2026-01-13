@@ -4,6 +4,8 @@ import ipaddress
 import socket
 import urllib.request
 from collections.abc import Callable
+from functools import partial
+from typing import cast
 from urllib.parse import urlparse
 
 from app.engine.models import PhotoItem
@@ -20,25 +22,21 @@ class DownloadManager:
         allowed_hosts: list[str] | None = None,
     ) -> None:
         self._cache: dict[str, bytes] = {}
-        self._fetcher = fetcher or _default_fetcher
         self._headers = headers or {}
         self._timeout_seconds = timeout_seconds
         self._allowed_hosts = allowed_hosts or []
+        self._fetcher = fetcher or partial(
+            _default_fetcher,
+            headers=self._headers,
+            timeout_seconds=self._timeout_seconds,
+            allowed_hosts=self._allowed_hosts,
+        )
         self.download_count = 0
 
     def get_bytes(self, item: PhotoItem) -> bytes:
         if item.id in self._cache:
             return self._cache[item.id]
-        data = (
-            self._fetcher(item)
-            if self._fetcher is not _default_fetcher
-            else _default_fetcher(
-                item,
-                headers=self._headers,
-                timeout_seconds=self._timeout_seconds,
-                allowed_hosts=self._allowed_hosts,
-            )
-        )
+        data = self._fetcher(item)
         self._cache[item.id] = data
         self.download_count += 1
         return data
@@ -56,7 +54,7 @@ def _default_fetcher(
     validate_download_url(item.download_url, allowed_hosts)
     request = urllib.request.Request(item.download_url, headers=headers)
     with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
-        return response.read()
+        return cast(bytes, response.read())
 
 
 def validate_download_url(url: str, allowed_hosts: list[str]) -> None:

@@ -22,7 +22,7 @@ async def health() -> dict[str, str]:
 
 
 @router.post("/api/scan", response_model=ScanResult)
-async def scan(request: ScanRequest) -> ScanResult:
+def scan(request: ScanRequest) -> ScanResult:
     settings = get_settings()
     if request.photo_items:
         items = normalize_photo_items(request.photo_items)

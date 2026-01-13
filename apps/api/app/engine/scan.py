@@ -20,7 +20,9 @@ def run_scan(
 ) -> ScanResult:
     run_id = uuid4().hex
     photo_items = list(items)
-    download_manager = download_manager or DownloadManager()
+    download_manager = download_manager or DownloadManager(
+        allowed_hosts=settings.scan_allowed_download_hosts
+    )
     hashing_service = HashingService(download_manager)
     timings: dict[str, float] = {}
     counts: dict[str, int] = {"selected_images": len(photo_items)}

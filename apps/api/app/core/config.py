@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     environment: str = "local"
     scan_max_photos: int = 250
     scan_consent_threshold: int = 200
+    scan_allowed_download_hosts: list[str] = [
+        "photos.google.com",
+        "lh3.googleusercontent.com",
+        "googleusercontent.com",
+    ]
     scan_dhash_threshold_very: int = 5
     scan_dhash_threshold_possible: int = 10
     scan_phash_threshold_very: int = 6
@@ -35,6 +40,13 @@ class Settings(BaseSettings):
     def split_origins(cls, value: Sequence[str] | str) -> list[str]:
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return list(value)
+
+    @field_validator("scan_allowed_download_hosts", mode="before")
+    @classmethod
+    def split_allowed_hosts(cls, value: Sequence[str] | str) -> list[str]:
+        if isinstance(value, str):
+            return [host.strip() for host in value.split(",") if host.strip()]
         return list(value)
 
     @property

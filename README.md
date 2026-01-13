@@ -108,6 +108,7 @@ Prereqs: Node.js 20+, pnpm (via Corepack), Python 3.12+, and `uv`.
 ENVIRONMENT=local
 SCAN_MAX_PHOTOS=250
 SCAN_CONSENT_THRESHOLD=200
+SCAN_ALLOWED_DOWNLOAD_HOSTS=photos.google.com,lh3.googleusercontent.com,googleusercontent.com
 SCAN_DHASH_THRESHOLD_VERY=5
 SCAN_DHASH_THRESHOLD_POSSIBLE=10
 SCAN_PHASH_THRESHOLD_VERY=6
@@ -118,7 +119,9 @@ SCAN_COST_PER_PERCEPTUAL_HASH=0.00008
 SCAN_COST_PER_COMPARISON=0.00001
 ```
 
-In `local` or `dev`, guardrails only log warnings. In `prod`, limits are enforced.
+In `local` or `dev`, guardrails only log warnings. In `prod`, limits are enforced. Download
+URLs are restricted to the allowlisted Google Photos hosts and rejected if they resolve to
+non-global addresses to mitigate SSRF risk.
 
 ## Out of Scope (Phase 2)
 

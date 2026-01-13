@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 import ipaddress
 import socket
-import urllib.request
-from collections.abc import Callable
 from urllib.parse import urlparse
+import urllib.request
 
 from app.engine.models import PhotoItem
 

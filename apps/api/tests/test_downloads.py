@@ -1,8 +1,6 @@
-from __future__ import annotations
+from datetime import UTC, datetime
 
 import pytest
-
-from datetime import UTC, datetime
 
 from app.engine import downloads
 from app.engine.models import PhotoItem

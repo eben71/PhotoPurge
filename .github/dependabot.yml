@@ -46,7 +46,7 @@ updates:
       prefix: "deps"
       include: "scope"
   - package-ecosystem: "npm"
-    directory: "/apps/web"
+    directory: "/"
     schedule:
       interval: "weekly"
       day: "sunday"
@@ -67,4 +67,3 @@ updates:
     commit-message:
       prefix: "deps"
       include: "scope"
-

@@ -21,9 +21,9 @@
     "prepare": "node scripts/prepare-lefthook.cjs"
   },
   "devDependencies": {
-    "lefthook": "^2.1.10",
-    "playwright": "^1.62.1",
-    "turbo": "^2.10.9",
+    "lefthook": "^2.1.12",
+    "playwright": "^1.63.0",
+    "turbo": "^2.10.12",
     "typescript": "^5.9.3"
   },
   "dependencies": {
